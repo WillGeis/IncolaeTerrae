@@ -13,6 +13,11 @@ app.MapGet("/testmap", () =>
     //return GameState.GetResourceMapAsJson();
 });
 
+app.MapPost("/api/send-array", (int[] data) =>
+{
+    return Results.Ok(GameState.SendArrayAsJson(data));
+});
+
 app.Run();
 
 public static class GameState
@@ -25,6 +30,96 @@ public static class GameState
     ==================================================================================================================================================================================================================================================================
     */
     private static Random rng = new Random();
+
+    /*
+    This Code Chunk runs the main gamestate and facilitator methods.
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - 
+    ==================================================================================================================================================================================================================================================================
+    */
+    private static List<Player> Players = new List<Player>();
+    
+    public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition)
+    {
+        GameStartupPhase(numPlayers, mapType, mapSize);
+
+        while (!CheckWinCondition(Players, winCondition))
+        {
+            foreach (var player in Players)
+            {
+                // Player turn logic goes here
+            }
+        }
+        return false;
+    }
+
+    public static bool CheckWinCondition(List<Player> players, int winCondition)
+    {
+        foreach (var player in players)
+        {
+            int playerPoints = player.Settlements.Count + (2 * player.Cities.Count) + (player.HasLargestArmy ? 2 : 0) + (player.HasLongestRoad ? 2 : 0);
+            if (playerPoints >= winCondition)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static bool GameStartupPhase(int numPlayers, int mapType, int mapSize)
+    {
+        GenerateNewMaps(mapType, mapSize);
+        GenerateNodeGraph(mapType, mapSize);
+        // player setup
+        for (int i = 0; i < numPlayers; i++)
+        {
+            Players.Add(new Player
+            {
+                PlayerID = i,
+                Name = $"Player {i + 1}",
+                Wheat = 0,
+                Bricks = 0,
+                Ore = 0,
+                Wood = 0,
+                Sheep = 0,
+                KnightsPlayed = 0,
+                HasLargestArmy = false,
+                HasLongestRoad = false
+            });
+        }
+        return true;
+    }
+
+    public static void InitialPlayerTurn(int playerID, bool settlement, int xSettlement, double ySettlement, bool city, int xCity, int yCity, bool road, int xRoad1, int xRoad2, double yRoad1, double yRoad2, bool developmentCard, int playDevelopmentCard, int tradeOfferID, bool startPhase)
+    {
+        if (settlement)
+        {
+            NodeGraph.ContainsKey((xSettlement, ySettlement));
+            if (startPhase)
+            {
+                if (NodeGraph.ContainsKey((xSettlement, ySettlement)) &&
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID == -1)
+                {
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID = playerID;
+                    Players[playerID].Settlements.Add((xSettlement, ySettlement));
+                }
+                else
+                {
+                    Console.WriteLine("Error: Invalid settlement coordinates during startup phase");
+                }
+            }
+            else
+            {
+                if (NodeGraph.ContainsKey((xSettlement, ySettlement)) &&
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID == -1)
+                {
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID = playerID;
+                    Players[playerID].Settlements.Add((xSettlement, ySettlement));
+                }
+            }
+        }
+    }
 
     /*
     This Code Chunk generates the resource map instance for this game and defines constructors for it.
@@ -317,6 +412,22 @@ public static class GameState
         }
     }
 
+    /*
+    API Method for sending arrays as JSON
+    ==================================================================================================================================================================================================================================================================
+    NO CONSTRUCTORS:
+     - 
+    ==================================================================================================================================================================================================================================================================
+    */
+    public static object SendArrayAsJson<T>(T[] data)
+    {
+        if (data == null)
+            return new { error = "Data array is null" };
+
+        return data;
+    }
+
+
 
     /*
     AI GENERATED SERIALIZATION METHODS
@@ -340,7 +451,7 @@ public static class GameState
             result[key] = entry.Value.Select(t => new
             {
                 resourceTypeID = t.resourceTypeID,
-                resourceRoll = t.resourceRoll
+                resourceRoll = t.resourceRoll,
             }).ToList();
         }
 
@@ -388,11 +499,17 @@ public class Node
 
 public class Player
 {
+    public int PlayerID { get; set; }
     public string Name { get; set; }
-    public int Points { get; set; }
     public int Wheat { get; set; }
     public int Bricks { get; set; }
     public int Ore { get; set; }
     public int Wood { get; set; }
     public int Sheep { get; set; }
+    public List<(int x, double y)> Settlements { get; set; } = new List<(int x, double y)>();
+    public List<(int x, double y)> Cities { get; set; } = new List<(int x, double y)>();
+    public List<(int x1, int x2, double y1, double y2)> Roads { get; set; } = new List<(int x1, int x2, double y1, double y2)>(); 
+    public int KnightsPlayed { get; set; }
+    public bool HasLargestArmy { get; set; }
+    public bool HasLongestRoad { get; set; }
 }
