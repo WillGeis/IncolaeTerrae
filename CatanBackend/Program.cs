@@ -1,3 +1,5 @@
+using System.Collections;
+
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
@@ -48,7 +50,7 @@ public static class GameState
         {
             foreach (var player in Players)
             {
-                // Player turn logic goes here
+                
             }
         }
         return false;
@@ -91,8 +93,9 @@ public static class GameState
         return true;
     }
 
-    public static void InitialPlayerTurn(int playerID, bool settlement, int xSettlement, double ySettlement, bool city, int xCity, int yCity, bool road, int xRoad1, int xRoad2, double yRoad1, double yRoad2, bool developmentCard, int playDevelopmentCard, int tradeOfferID, bool startPhase)
+    public static void PlayerTurn(int playerID, bool settlement, int xSettlement, double ySettlement, bool city, int xCity, double yCity, bool road, int xRoad1, int xRoad2, double yRoad1, double yRoad2, bool developmentCard, int developmentCardID, bool playDevelopmentCard, int tradeOfferID, bool startPhase, bool roadBuildingCard)
     {
+        // Settlement placing block
         if (settlement)
         {
             NodeGraph.ContainsKey((xSettlement, ySettlement));
@@ -111,14 +114,205 @@ public static class GameState
             }
             else
             {
-                if (NodeGraph.ContainsKey((xSettlement, ySettlement)) &&
-                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID == -1)
+                if (NodeGraph.ContainsKey((xSettlement, ySettlement)) && // checker for if the key is in the settlements graph
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID == -1 && // checker to make sure code for settlement location is unoccupied
+                    NodeGraph[(xSettlement, ySettlement)].Edges.Any(e => e.RoadPlayerID == playerID) && // checker to make sure the settlement is connected to one of the player's roads
+                    CheckResources(playerID, 0)) // checker to make sure the player has the resources for a settlement
                 {
                     NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID = playerID;
                     Players[playerID].Settlements.Add((xSettlement, ySettlement));
                 }
             }
+        } 
+        // City Placing Block
+        else if (city)
+        {
+            if (startPhase)
+            {
+                Console.WriteLine("Error: Cannot build city during startup phase");
+            }
+            else
+            {
+                if (NodeGraph.ContainsKey((xCity, yCity)) && // checker for if the key is in the settlements graph
+                    NodeGraph[(xCity, yCity)].SettlementPlayerID == playerID && // checker to make sure there is a settlement of the player's to upgrade
+                    CheckResources(playerID, 1)) // checker to make sure the player has the resources for a city
+                {
+                    NodeGraph[(xCity, yCity)].SettlementPlayerID = playerID; // this line is redundant but will reload the playerID for the node to PlayerID
+                    Players[playerID].Cities.Add((xCity, yCity));
+                    Players[playerID].Settlements.Remove((xCity, yCity));
+                }
+            }
         }
+        // Road Placing Block
+        else if (road)
+        {
+            if (startPhase)
+            {
+                if (NodeGraph.ContainsKey((xRoad1, yRoad1)) && NodeGraph.ContainsKey((xRoad2, yRoad2)) && // checker for if the keys are in the settlements graph
+                    NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2))) // checker to make sure the nodes are adjacent
+                {
+                    var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
+                    edge1.RoadPlayerID = playerID;
+
+                    var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
+                    edge2.RoadPlayerID = playerID;
+
+                    Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
+                }
+                 else
+                {
+                    Console.WriteLine("Error: Invalid road coordinates during startup phase");
+                }
+            }
+            else
+            {
+                if (NodeGraph.ContainsKey((xRoad1, yRoad1)) && NodeGraph.ContainsKey((xRoad2, yRoad2)) && // checker for if the keys are in the settlements graph
+                    CheckResources(playerID, 2) && // checker to make sure the player has the resources for a road
+                    NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2)) && // checker to make sure the nodes are adjacent
+                    NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.RoadPlayerID == playerID) || NodeGraph[(xRoad2, yRoad2)].Edges.Any(e => e.RoadPlayerID == playerID)) // checker to make sure the road is connected to one of the player's existing roads
+                {
+                    var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
+                    edge1.RoadPlayerID = playerID;
+
+                    var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
+                    edge2.RoadPlayerID = playerID;
+
+                    Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
+                }
+                else if (NodeGraph.ContainsKey((xRoad1, yRoad1)) && NodeGraph.ContainsKey((xRoad2, yRoad2)) &&
+                        NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2)) && // checker to make sure the nodes are adjacent
+                        NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.RoadPlayerID == playerID) || NodeGraph[(xRoad2, yRoad2)].Edges.Any(e => e.RoadPlayerID == playerID)) // checker to make sure the road is connected to one of the player's existing roads
+                {
+                    var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
+                    edge1.RoadPlayerID = playerID;
+
+                    var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
+                    edge2.RoadPlayerID = playerID;
+
+                    Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
+                }
+            }
+        }
+
+        else if (developmentCard)
+        {
+            if (startPhase)
+            {
+                Console.WriteLine("Error: Cannot buy development card during startup phase");
+            }
+            else
+            {
+                if (CheckResources(playerID, 3))
+                {
+                    Players[playerID].DevelopmentCards.Add(rng.Next());
+                }
+            }
+        }
+
+        else if (playDevelopmentCard)
+        {
+            int monopoly = -1;
+            if (developmentCardID == 2)
+            {
+                monopoly = PlayerPromptInt();
+            }
+            int yearOfPlenty1 = -1;
+            int yearOfPlenty2 = -1;
+            if (developmentCardID == 4)
+            {
+                yearOfPlenty1 = PlayerPromptInt();
+                yearOfPlenty2 = PlayerPromptInt();
+            }
+            DevelopmentCardHandler(playerID, developmentCardID, monopoly, xRoad1, xRoad2, yRoad1, yRoad2, yearOfPlenty1, yearOfPlenty2);
+        }
+
+        else if (tradeOfferID >= 0)
+        {
+            // Trade offer logic goes here
+        }
+
+        else
+        {
+            Console.WriteLine("Error: No valid action selected");
+        }
+    }   
+
+    // Purchase type ID: 0 = settlement, 1 = city, 2 = road, 3 = development card
+    public static bool CheckResources(int PlayerID, int purchaseType)
+    {
+        switch (purchaseType)
+        {
+            case 0: // settlement
+                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1 && Players[PlayerID].Sheep >= 1)
+                {
+                    Players[PlayerID].Wheat -= 1;
+                    Players[PlayerID].Bricks -= 1;
+                    Players[PlayerID].Wood -= 1;
+                    Players[PlayerID].Sheep -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+            
+            case 1: // city
+                if (Players[PlayerID].Wheat >= 2 && Players[PlayerID].Ore >= 3)
+                {
+                    Players[PlayerID].Wheat -= 2;
+                    Players[PlayerID].Ore -= 3;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+
+            case 2: // road
+                if (Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1)
+                {
+                    Players[PlayerID].Bricks -= 1;
+                    Players[PlayerID].Wood -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+
+            case 3: // development card
+                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Ore >= 1 && Players[PlayerID].Sheep >= 1)
+                {
+                    Players[PlayerID].Wheat -= 1;
+                    Players[PlayerID].Ore -= 1;
+                    Players[PlayerID].Sheep -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+            
+        }
+        return false;
+    }
+
+    public static bool BoatTradeHandler(int PlayerID, int GiveResourceID, int ReceiveResourceID)
+    {
+        // Boat trade logic goes here
+        return true;
+    }
+
+    /*
+    This Code Chunk is a prompt for a user interaction.
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - none yet
+    ==================================================================================================================================================================================================================================================================
+    */
+    public static int PlayerPromptInt()
+    {
+        return 1; //DO NOT HARDCODE THIS YOU NEED TO DO AN API CALL
     }
 
     /*
@@ -129,7 +323,7 @@ public static class GameState
      - ResourceDirctory: associates the integer given in ResourceMap to a resource name, not really sure if this is fully necessary for a backend, but it helps me keep it in my head
     ==================================================================================================================================================================================================================================================================
     */
-    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll)>> ResourceMap;
+    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
     public static Dictionary<int, string> ResourceDirectory;
 
     /*
@@ -170,7 +364,7 @@ public static class GameState
         int midpoint = (MapSize / 2);
         int xMaxSize = MapSize;
 
-        ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll)>>();
+        ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
         for (int i = 0; i < MapSize; i++)
         {
             for (int j = 0; j < xSize; j++)
@@ -202,8 +396,8 @@ public static class GameState
                 rollPool[chosenRoll - 2]--;
 
                 // assign the current tile its values
-                List<(int resourceTypeID, int resourceRoll)> currentTile = new List<(int resourceTypeID, int resourceRoll)>();
-                currentTile.Add((chosenResource, chosenRoll));
+                List<(int resourceTypeID, int resourceRoll, bool hasRobber)> currentTile = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
+                currentTile.Add((chosenResource, chosenRoll, false));
                 ResourceMap.Add((i, j), currentTile);
             }
             if (i < midpoint)
@@ -413,6 +607,162 @@ public static class GameState
     }
 
     /*
+    This code chunk will handle all Development Card logic
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - DevelopmentCardDirectory: associates the integer given in DevelopmentCards to a development card name
+    ==================================================================================================================================================================================================================================================================
+    */
+
+    public static Dictionary<int, string> DevelopmentCardDirectory;
+
+    public static void DevelopmentCardDirectoryStarter()
+    {
+        DevelopmentCardDirectory = new Dictionary<int, string>
+        {
+            { 1, "Knight" },
+            { 2, "Monopoly" },
+            { 3, "Road Building" },
+            { 4, "Year of Plenty" },
+            { 5, "Victory Point" }
+        };
+    }
+
+    public static void DevelopmentCardHandler(int PlayerID, int CardID, int monopolyResourceID, int roadX1, int roadX2, double roadY1, double roadY2, int resourceSelection1, int resourceSelection2)
+    {
+        if (!DevelopmentCardDirectory.ContainsKey(CardID))
+        {
+            Console.WriteLine("Error: Invalid Development Card ID");
+            return;
+        }
+        if (Players[PlayerID].DevelopmentCards.Contains(CardID))
+        {
+            Players[PlayerID].DevelopmentCards.Remove(CardID);
+            switch (CardID)
+            {
+                case 1: // Knight
+                    var playerInput = GetPlayerRobberInput();
+                    MoveRobber(playerInput[0].x, playerInput[0].y);
+                    Players[PlayerID].KnightsPlayed++;
+                    break;
+                case 2: // Monopoly
+                    foreach (var player in Players)
+                    {
+                        if (player.PlayerID != PlayerID)
+                        {
+                            switch (monopolyResourceID)
+                            {
+                                case 1:
+                                    Players[PlayerID].Wheat += player.Wheat;
+                                    player.Wheat = 0;
+                                    break;
+                                case 2:
+                                    Players[PlayerID].Bricks += player.Bricks;
+                                    player.Bricks = 0;
+                                    break;
+                                case 3:
+                                    Players[PlayerID].Ore += player.Ore;
+                                    player.Ore = 0;
+                                    break;
+                                case 4:
+                                    Players[PlayerID].Wood += player.Wood;
+                                    player.Wood = 0;
+                                    break;
+                                case 5:
+                                    Players[PlayerID].Sheep += player.Sheep;
+                                    player.Sheep = 0;
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+                case 3: // Road Building
+                    PlayerTurn(PlayerID, false, -1, -1, false, -1, -1, true, roadX1, roadX2, roadY1, roadY2, false, -1, false, -1, false, true);
+                    PlayerTurn(PlayerID, false, -1, -1, false, -1, -1, true, roadX1, roadX2, roadY1, roadY2, false, -1, false, -1, false, true);
+                    break;
+                case 4: // Year of Plenty
+                    switch (resourceSelection1)
+                    {
+                        case 1:
+                            Players[PlayerID].Wheat++;
+                            break;
+                        case 2:
+                            Players[PlayerID].Bricks++;
+                            break;
+                        case 3:
+                            Players[PlayerID].Ore++;
+                            break;
+                        case 4:
+                            Players[PlayerID].Wood++;
+                            break;
+                        case 5:
+                            Players[PlayerID].Sheep++;
+                            break;
+                    }
+                    switch (resourceSelection2)
+                    {
+                        case 1:
+                            Players[PlayerID].Wheat++;
+                            break;
+                        case 2:
+                            Players[PlayerID].Bricks++;
+                            break;
+                        case 3:
+                            Players[PlayerID].Ore++;
+                            break;
+                        case 4:
+                            Players[PlayerID].Wood++;
+                            break;
+                        case 5:
+                            Players[PlayerID].Sheep++;
+                            break;
+                    }
+                    break;
+                case 5: // Victory Point
+                    Players[PlayerID].ExtraPoints++;
+                    break;
+            }
+        }
+    }
+
+    /*
+    Robber Logic Code Chunk
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - RobberCoords: gives the tile coordinates as a key and a bool if they are there or not
+    ==================================================================================================================================================================================================================================================================
+    */
+    public static Dictionary<(int x, double y), bool> RobberCoords = new Dictionary<(int x, double y), bool>();
+
+    public static List<(int x, double y)> GetPlayerRobberInput() // THIS NEEDS TO NOT BE HARDCODED, I AM TOO LAZY RN
+    {
+        List<(int x, double y)> result = new List<(int x, double y)> {(0, 0.0)};
+        return result;
+    }
+
+    public static void InitializeRobber(int startX, int startY)
+    {
+        RobberCoords[(startX, startY)] = true;
+    }
+    
+    public static void MoveRobber(int newX, double newY)
+    {
+        foreach (var key in RobberCoords.Keys.ToList())
+        {
+            RobberCoords[key] = false;
+        }
+
+        if (RobberCoords.ContainsKey((newX, newY)))
+        {
+            RobberCoords[(newX, newY)] = true;
+        }
+        else
+        {
+            RobberCoords[(newX, newY)] = true;
+        }
+    }
+
+    /*
     API Method for sending arrays as JSON
     ==================================================================================================================================================================================================================================================================
     NO CONSTRUCTORS:
@@ -508,8 +858,10 @@ public class Player
     public int Sheep { get; set; }
     public List<(int x, double y)> Settlements { get; set; } = new List<(int x, double y)>();
     public List<(int x, double y)> Cities { get; set; } = new List<(int x, double y)>();
-    public List<(int x1, int x2, double y1, double y2)> Roads { get; set; } = new List<(int x1, int x2, double y1, double y2)>(); 
+    public List<(int x1, int x2, double y1, double y2)> Roads { get; set; } = new List<(int x1, int x2, double y1, double y2)>();
+    public List<int> DevelopmentCards { get; set; } = new List<int>();
     public int KnightsPlayed { get; set; }
     public bool HasLargestArmy { get; set; }
     public bool HasLongestRoad { get; set; }
+    public int ExtraPoints { get; set; }
 }
