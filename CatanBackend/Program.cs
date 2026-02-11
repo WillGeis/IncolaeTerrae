@@ -33,6 +33,8 @@ public static class GameState
     */
     private static Random rng = new Random();
 
+    private static int MapSizeGlobal = -1;
+
     /*
     This Code Chunk runs the main gamestate and facilitator methods.
     ==================================================================================================================================================================================================================================================================
@@ -44,13 +46,15 @@ public static class GameState
     
     public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition)
     {
+        MapSizeGlobal = mapSize;
         GameStartupPhase(numPlayers, mapType, mapSize);
 
         while (!CheckWinCondition(Players, winCondition))
         {
             foreach (var player in Players)
             {
-                
+                ResourceRollPhase();
+                //PlayerTurn(); //placeholder for now, need to actually give data to parse once i figure out how to connect to frontend
             }
         }
         return false;
@@ -605,6 +609,133 @@ public static class GameState
             });
         }
     }
+
+    /*
+    This Code Chunk rolls a dice then assigs resources.
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - none yet
+    ==================================================================================================================================================================================================================================================================
+    */
+
+    public static void ResourceRollPhase()
+    {
+        var rolledHexes = GatherRolledHexes();
+
+        AssociatePlayerResources(rolledHexes, MapSizeGlobal);
+    }
+
+    // public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
+    //Player.thesethings:
+    //    public List<(int x, double y)> Settlements { get; set; } = new List<(int x, double y)>();
+    //    public List<(int x, double y)> Cities { get; set; } = new List<(int x, double y)>();
+    /*
+            { 1, "Wheat" },
+            { 2, "Brick" },
+            { 3, "Ore" },
+            { 4, "Wood" },
+            { 5, "Sheep" },
+            { 6, "Desert" }
+    */
+    public static void AssociatePlayerResources(Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> rolledHexes, int MapSize)
+    {
+        List<(int, int[])> playerResources = new List<(int, int[])> { };
+
+        int midpoint = (MapSize / 2);
+
+        foreach (var rolledHex in rolledHexes)
+        {
+            var resourcedNodes = new List<(int x, double y)>();
+            int rolledXTemp = rolledHex.Key.x;
+            double rolledYTemp = rolledHex.Key.y;
+            int resourceRoll = rolledHex.Value[0].resourceRoll;
+            resourcedNodes.Add((rolledXTemp, rolledYTemp + .5)); // spoke up .5 left .5
+            resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + .5)); // spoke up .5 right .5
+            resourcedNodes.Add((rolledXTemp, rolledYTemp + 1)); // spoke down .5 left .5
+            resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + 1)); // spoke down .5 right .5
+            if (rolledXTemp < midpoint) // getting bigger
+            {
+                resourcedNodes.Add((rolledXTemp, rolledYTemp)); // spoke up 1.5 left .5
+                resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + 1.5)); // spoke down 1.5 right .5
+            }
+            else if (rolledXTemp > midpoint) // getting smaller
+            {
+                resourcedNodes.Add((rolledXTemp + 1, rolledYTemp)); // spoke up 1.5 right .5
+                resourcedNodes.Add((rolledXTemp, rolledYTemp + 1.5)); // spoke down 1.5 left .5
+            }
+            else // largest x
+            {
+                resourcedNodes.Add((rolledXTemp, rolledYTemp)); // spoke up 1.5 left .5
+                resourcedNodes.Add((rolledXTemp, rolledYTemp + 1.5)); // spoke down 1.5 left .5
+            }
+
+            foreach (var player in Players)
+            {
+                foreach (var settlement in player.Settlements)
+                {
+                    foreach (var node in resourcedNodes)
+                    {
+                        if (settlement.x == node.x && settlement.y == node.y)
+                        {
+                            switch (resourceRoll )
+                            {
+                                case 1:
+                                    player.Wheat += 1;
+                                    break;
+                                case 2:
+                                    player.Bricks += 1;
+                                    break;
+                                case 3:
+                                    player.Ore += 1;
+                                    break;
+                                case 4:
+                                    player.Wood += 1;
+                                    break;
+                                case 5:
+                                    player.Sheep += 1;
+                                    break;
+                                case 6:
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+        } 
+    }
+
+    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> RolledHexes = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
+    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> GatherRolledHexes()
+    {
+        var rolledHexes = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
+
+        int DiceRollTemp = DiceRoll();
+
+        foreach (var (hexCoord, resourceList) in ResourceMap)
+        {
+            foreach (var resource in resourceList)
+            {
+                if (resource.resourceRoll == DiceRollTemp && !resource.hasRobber)
+                {
+                    if (!rolledHexes.ContainsKey(hexCoord))
+                    {
+                        rolledHexes[hexCoord] = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
+                    }
+
+                    rolledHexes[hexCoord].Add(resource);
+                }
+            }
+        }
+
+        return rolledHexes;
+    }
+
+    public static int DiceRoll()
+    {
+        return rng.Next() + rng.Next() + 2;
+    }
+
+
 
     /*
     This code chunk will handle all Development Card logic
