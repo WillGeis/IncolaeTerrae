@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import StartScreen from "./StartScreen";
-import MainGameScreen from "./MainGameScreen";
+import MainGameScreen from "./HexGridScreen";
 
 const Stack = createNativeStackNavigator();
 
