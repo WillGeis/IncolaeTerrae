@@ -7,12 +7,37 @@ app.UseDeveloperExceptionPage();
 
 app.MapGet("/testmap", () =>
 {
+    //GameState.ResourceDirectoryStarter();
+    //GameState.GenerateNewMaps(1, 5);
+    //GameState.GenerateNodeGraph(1, 5);
+
+    //GameState.Gameloop(2, 1, 5, 1, 10, true);
+
+    //return GameState.GetNodeGraphAsJson();
+    //return GameState.GetResourceMapAsJson();
+
     GameState.ResourceDirectoryStarter();
     GameState.GenerateNewMaps(1, 5);
     GameState.GenerateNodeGraph(1, 5);
 
-    return GameState.GetNodeGraphAsJson();
-    //return GameState.GetResourceMapAsJson();
+    GameState.TestPlaceSettlements();
+
+    var rollHistory =
+        new List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>>();
+
+    for (int i = 0; i < 3; i++)
+    {
+        var rolledHexes = GameState.GatherRolledHexes();
+        rollHistory.Add(rolledHexes);
+
+        GameState.AssociatePlayerResources(rolledHexes, 5);
+    }
+
+    return new
+    {
+        Rolls = GameState.GetRolledHexesHistoryAsJson(rollHistory),
+        Players = GameState.GetAllPlayersAsJson()
+    };
 });
 
 app.MapPost("/api/send-array", (int[] data) =>
@@ -44,28 +69,34 @@ public static class GameState
     */
     private static List<Player> Players = new List<Player>();
     
-    public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition)
+    public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
     {
         MapSizeGlobal = mapSize;
         GameStartupPhase(numPlayers, mapType, mapSize);
 
-        while (!CheckWinCondition(Players, winCondition))
+        int numTurn = 0;
+
+        bool winTestFlag2ndTurn = false;
+
+        while (!CheckWinCondition(Players, winCondition, winPoints) || winTestFlag2ndTurn)
         {
             foreach (var player in Players)
             {
                 ResourceRollPhase();
                 //PlayerTurn(); //placeholder for now, need to actually give data to parse once i figure out how to connect to frontend
             }
+            if (winTestFlag) { winTestFlag2ndTurn = winTestFlag; }
+            numTurn++;
         }
         return false;
     }
 
-    public static bool CheckWinCondition(List<Player> players, int winCondition)
+    public static bool CheckWinCondition(List<Player> players, int winCondition, int winPoints)
     {
         foreach (var player in players)
         {
             int playerPoints = player.Settlements.Count + (2 * player.Cities.Count) + (player.HasLargestArmy ? 2 : 0) + (player.HasLongestRoad ? 2 : 0);
-            if (playerPoints >= winCondition)
+            if (playerPoints >= winPoints)
             {
                 return true;
             }
@@ -646,19 +677,22 @@ public static class GameState
         foreach (var rolledHex in rolledHexes)
         {
             var resourcedNodes = new List<(int x, double y)>();
+
             int rolledXTemp = rolledHex.Key.x;
             double rolledYTemp = rolledHex.Key.y;
-            int resourceRoll = rolledHex.Value[0].resourceRoll;
+
+            int resourceType = rolledHex.Value[0].resourceTypeID;
+
             resourcedNodes.Add((rolledXTemp, rolledYTemp + .5)); // spoke up .5 left .5
             resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + .5)); // spoke up .5 right .5
             resourcedNodes.Add((rolledXTemp, rolledYTemp + 1)); // spoke down .5 left .5
             resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + 1)); // spoke down .5 right .5
-            if (rolledXTemp < midpoint) // getting bigger
+            if (rolledYTemp < midpoint) // getting bigger
             {
                 resourcedNodes.Add((rolledXTemp, rolledYTemp)); // spoke up 1.5 left .5
                 resourcedNodes.Add((rolledXTemp + 1, rolledYTemp + 1.5)); // spoke down 1.5 right .5
             }
-            else if (rolledXTemp > midpoint) // getting smaller
+            else if (rolledYTemp > midpoint) // getting smaller
             {
                 resourcedNodes.Add((rolledXTemp + 1, rolledYTemp)); // spoke up 1.5 right .5
                 resourcedNodes.Add((rolledXTemp, rolledYTemp + 1.5)); // spoke down 1.5 left .5
@@ -677,7 +711,7 @@ public static class GameState
                     {
                         if (settlement.x == node.x && settlement.y == node.y)
                         {
-                            switch (resourceRoll )
+                            switch (resourceType)
                             {
                                 case 1:
                                     player.Wheat += 1;
@@ -732,7 +766,7 @@ public static class GameState
 
     public static int DiceRoll()
     {
-        return rng.Next() + rng.Next() + 2;
+        return rng.Next(1, 7) + rng.Next(1, 7);
     }
 
 
@@ -908,6 +942,45 @@ public static class GameState
         return data;
     }
 
+    /*
+    Test Methods
+    ==================================================================================================================================================================================================================================================================
+    NO CONSTRUCTORS:
+     - TestPlaceSettlements() - places settlements
+    ==================================================================================================================================================================================================================================================================
+    */
+    public static void TestPlaceSettlements()
+    {
+        if (NodeGraph == null)
+            throw new Exception("NodeGraph not initialized");
+        Players.Clear();
+
+        Players.Add(new Player { PlayerID = 0, Name = "Player 1" });
+
+        Players.Add(new Player { PlayerID = 1, Name = "Player 2" });
+
+        // Player 0 (Displayed as Player 1) settlement at (0,0)
+        if (NodeGraph.ContainsKey((0, 0)))
+        {
+            NodeGraph[(0, 0)].SettlementPlayerID = 0;
+            Players[0].Settlements.Add((0, 0));
+        }
+        else
+        {
+            Console.WriteLine("WARNING: Node (0,0) does not exist, if this comes up you have seriously fucked up the code");
+        }
+
+        // Player 1 (Player 2 Disp) settlement at (2,3)
+        if (NodeGraph.ContainsKey((2, 3)))
+        {
+            NodeGraph[(2, 3)].SettlementPlayerID = 1;
+            Players[1].Settlements.Add((2, 3));
+        }
+        else
+        {
+            Console.WriteLine("WARNING: Node (2,3) does not exist, with mapsize >5 this line should not come up");
+        }
+    }
 
 
     /*
@@ -916,6 +989,8 @@ public static class GameState
     NO CONSTRUCTORS:
      - GetResourceMapAsJson: serializes the ResourceMap into a JSON-compatible object
      - GetNodeGraphAsJson: serializes the NodeGraph into a JSON-compatible object
+     - GetPlayerResourcesAsJson: serializes player resources, used after turn 1
+     - GetNodeGraphAndGetPlayerResources: used in testting because I have not written the frontend
     ==================================================================================================================================================================================================================================================================
     */
     public static object GetResourceMapAsJson()
@@ -963,6 +1038,120 @@ public static class GameState
 
         return result;
     }
+
+    public static object GetPlayerResourcesAsJson(int playerID)
+    {
+        if (playerID < 0 || playerID >= Players.Count)
+            return new { error = "Invalid player ID" };
+
+        var p = Players[playerID];
+
+        return new
+        {
+            p.PlayerID,
+            p.Name,
+            Resources = new
+            {
+                p.Wheat,
+                p.Bricks,
+                p.Ore,
+                p.Wood,
+                p.Sheep
+            },
+            Settlements = p.Settlements.Select(s => new
+            {
+                x = s.x,
+                y = s.y
+            }).ToList(),
+            Cities = p.Cities.Select(c => new
+            {
+                x = c.x,
+                y = c.y
+            }).ToList()
+        };
+    }
+
+    public static object GetRolledHexesAsJson(Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> rolledHexes)
+    {
+        var result = new Dictionary<string, object>();
+
+        foreach (var entry in rolledHexes)
+        {
+            var key = $"{entry.Key.x},{entry.Key.y}";
+
+            result[key] = entry.Value.Select(r => new
+            {
+                resourceTypeID = r.resourceTypeID,
+                resourceRoll = r.resourceRoll
+            }).ToList();
+        }
+
+        return result;
+    }
+
+    public static object GetAllPlayersAsJson()
+    {
+        return Players.Select(p => new
+        {
+            p.PlayerID,
+            p.Name,
+            Resources = new
+            {
+                p.Wheat,
+                p.Bricks,
+                p.Ore,
+                p.Wood,
+                p.Sheep
+            },
+            Settlements = p.Settlements.Select(s => new
+            {
+                x = s.x,
+                y = s.y
+            }).ToList()
+        }).ToList();
+    }
+
+
+    public static object GetNodeGraphAndGetPlayerResources(int playerID)
+    {
+        return new
+        {
+            NodeGraph = GetNodeGraphAsJson(),
+            Player = GetPlayerResourcesAsJson(playerID)
+        };
+    }
+
+    public static object GetRolledHexesHistoryAsJson(List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>> history)
+    {
+        var result = new List<object>();
+
+        int rollIndex = 0;
+
+        foreach (var roll in history)
+        {
+            var rollEntry = new Dictionary<string, object>();
+
+            foreach (var hex in roll)
+            {
+                var key = $"{hex.Key.x},{hex.Key.y}";
+
+                rollEntry[key] = hex.Value.Select(r => new
+                {
+                    resourceTypeID = r.resourceTypeID,
+                    resourceRoll = r.resourceRoll
+                }).ToList();
+            }
+
+            result.Add(new
+            {
+                RollNumber = rollIndex++,
+                Hexes = rollEntry
+            });
+        }
+
+        return result;
+    }
+
 
 }
 
