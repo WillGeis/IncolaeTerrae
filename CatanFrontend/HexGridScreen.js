@@ -9,67 +9,66 @@ import sprite6 from "./assets/hexSprites/sprite6.png";
 
 const spriteMap = [sprite1, sprite2, sprite3, sprite4, sprite5, sprite6];
 
-const HEX_SIZE = 60; // width of hexagon
-const HEX_HEIGHT = HEX_SIZE * 0.866; // visual height = width * 0.866
-
-const Hex = () => {
-  return <View style={styles.hex} />;
-};
-
-const HexRow = ({ count, offset }) => {
-  return (
-    <View
-      style={[
-        styles.row,
-        offset && { marginLeft: ROW_OFFSET }
-      ]}
-    >
-      {Array.from({ length: count }).map((_, i) => (
-        <Hex key={i} />
-      ))}
-    </View>
-  );
-};
-
 function getHexRowsFromLength(n) {
-  //  $r_n(r_{n-1}) + 1 = n$
   const r = Math.round((3 + Math.sqrt(12 * n - 3)) / 6);
   const rows = [];
-
   for (let i = 0; i < r; i++) rows.push(r + i);
   for (let i = r - 2; i >= 0; i--) rows.push(r + i);
-
   return rows;
 }
 
-export default function HexGridScreen({ hexData }) {
-  if (!hexData || hexData.length === 0) return null;
+export default function HexGridScreen({ hexData, HEX_WIDTH, HEX_HEIGHT }) {
+  if (!hexData?.length) return null;
 
   const rows = getHexRowsFromLength(hexData.length);
   const maxRow = Math.max(...rows);
-
   let dataIndex = 0;
 
+  const gridWidth = maxRow * HEX_WIDTH;
+  const gridHeight = rows.length * HEX_HEIGHT * 0.75;
+
   return (
-    <View style={styles.container}>
+    <View style={{ width: gridWidth, height: gridHeight }}>
       {rows.map((count, rowIndex) => {
-        const offset = (maxRow - count) * (HEX_SIZE / 2);
+        const offsetX = (maxRow - count) * (HEX_WIDTH / 2);
+        const offsetY = rowIndex * (HEX_HEIGHT * 0.75);
 
         return (
           <View
             key={rowIndex}
-            style={[styles.row, { marginLeft: offset }]}
+            style={{
+              position: "absolute",
+              top: offsetY,
+              left: offsetX,
+              flexDirection: "row",
+            }}
           >
             {Array.from({ length: count }).map((_, colIndex) => {
-              const value = hexData[dataIndex++] - 1;
-              const sprite = spriteMap[value];
-
+              const sprite = spriteMap[hexData[dataIndex++] - 1];
               return (
-                <Image
+                <View
                   key={colIndex}
-                  source={sprite}
-                  style={styles.hex}
-                />
+                  style={{ width: HEX_WIDTH, height: HEX_HEIGHT }}
+                >
+                  <View
+                    style={{
+                      width: HEX_WIDTH,
+                      height: HEX_HEIGHT,
+                      overflow: "hidden",
+                      clipPath:
+                        "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}
+                  >
+                    <Image
+                      source={sprite}
+                      style={{
+                        width: HEX_WIDTH,
+                        height: HEX_HEIGHT,
+                        resizeMode: "cover",
+                      }}
+                    />
+                  </View>
+                </View>
               );
             })}
           </View>
@@ -78,22 +77,3 @@ export default function HexGridScreen({ hexData }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  row: {
-    flexDirection: "row",
-    marginVertical: -10, // overlap rows
-  },
-
-  hex: {
-    width: HEX_SIZE,
-    height: HEX_HEIGHT,
-    marginHorizontal: 5,
-  },
-});
