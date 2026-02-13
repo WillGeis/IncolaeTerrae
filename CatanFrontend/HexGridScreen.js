@@ -9,18 +9,49 @@ import sprite6 from "./assets/hexSprites/sprite6.png";
 
 const spriteMap = [sprite1, sprite2, sprite3, sprite4, sprite5, sprite6];
 
-function getHexRowsFromLength(n) {
-  const r = Math.round((3 + Math.sqrt(12 * n - 3)) / 6);
+// change mapsize accordingly
+function getHexRowsFromLength(totalHexes, topRow = 3, mapSize) {
+  if (mapSize < 4) {
+    throw new Error("MapSize must be at least 4");
+  }
+
   const rows = [];
-  for (let i = 0; i < r; i++) rows.push(r + i);
-  for (let i = r - 2; i >= 0; i--) rows.push(r + i);
+  let xSize = topRow;
+  const midpoint = Math.floor(mapSize / 2);
+  let remainingHexes = totalHexes;
+
+  for (let i = 0; i < mapSize; i++) {
+    // Make sure we don’t add more hexes than we have remaining
+    const rowHexes = Math.min(xSize, remainingHexes);
+    rows.push(rowHexes);
+    remainingHexes -= rowHexes;
+
+    if (i < midpoint) {
+      xSize++; // increase toward midpoint
+    } else {
+      xSize--; // decrease after midpoint
+    }
+
+    // safety check
+    if (xSize < topRow) break;
+  }
+
+  // If there are leftover hexes, distribute them starting from the middle
+  let idx = Math.floor(rows.length / 2);
+  while (remainingHexes > 0) {
+    rows[idx]++;
+    remainingHexes--;
+    idx = (idx + 1) % rows.length;
+  }
+
   return rows;
 }
 
-export default function HexGridScreen({ hexData, HEX_WIDTH, HEX_HEIGHT }) {
+
+export default function HexGridScreen({ hexData, HEX_WIDTH, HEX_HEIGHT, MAP_SIZE }) {
   if (!hexData?.length) return null;
 
-  const rows = getHexRowsFromLength(hexData.length);
+  const rows = getHexRowsFromLength(hexData.length, 3, MAP_SIZE);
   const maxRow = Math.max(...rows);
   let dataIndex = 0;
 
