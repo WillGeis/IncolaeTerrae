@@ -3,7 +3,7 @@ import { View, StyleSheet } from "react-native";
 import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 
-const SCALAR = 3;
+const SCALAR = 2.7;
 const HEX_SIZE = 60 * SCALAR;
 const HEX_WIDTH = HEX_SIZE;
 const HEX_HEIGHT = HEX_SIZE * 1.1547;

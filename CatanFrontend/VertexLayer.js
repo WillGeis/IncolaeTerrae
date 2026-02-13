@@ -11,7 +11,7 @@ export default function VertexLayer({
   verticalShift = -130, // shift all dots up/down
 }) {
   const xSpacing = HEX_WIDTH / 1.01; // horizontal spacing
-  const oddRowOffset = HEX_HEIGHT / 5.45; // vertical spacing
+  const oddRowOffset = HEX_HEIGHT / 5.15; // vertical spacing
   const evenRowOffset = HEX_HEIGHT / 1.75; // stagger even rows vertically
 
   const maxCols = Math.max(...vertexData.map(r => r.length));
