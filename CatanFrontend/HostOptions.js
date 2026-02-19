@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
 import Slider from "@react-native-community/slider";
+import { usePlayer } from "./PlayerContext";
 
 export default function HostOptions({ visible, onClose, onStartGame }) {
   const [mapSize, setMapSize] = useState(5);
   const [victoryPoints, setVictoryPoints] = useState(10);
+
+  const { username } = usePlayer();
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -45,9 +48,10 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
             style={styles.goButton}
             onPress={() =>
               onStartGame({
+                HostUsername: username,
                 mapSize: Number(mapSize),
-                mapType: Number(1),
-                winCondition: Number(1),
+                mapType: 1,
+                winCondition: 1,
                 winPoints: Number(victoryPoints),
               })
             }
@@ -67,7 +71,6 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
     </Modal>
   );
 }
-
 
 const styles = StyleSheet.create({
   modalBackground: {

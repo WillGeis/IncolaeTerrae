@@ -10,6 +10,9 @@ import MainGameScreen from "./MainGameScreen";
 import LobbyScreen from "./LobbyScreen";
 import HostWaitingScreen from "./HostWaitingScreen";
 import PlayerWaitingScreen from "./PlayerWaitingScreen";
+import JoinGame from "./JoinGame";
+import { PlayerProvider, usePlayer } from "./PlayerContext";
+
 
 const Stack = createNativeStackNavigator();
 
@@ -29,65 +32,72 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Start">
-        <Stack.Screen
-          name="Start"
-          component={StartScreen}
-          options={{
-            title: "Cootan Main",
-            headerTransparent: true,
-            headerShadowVisible: false,
-            headerTitleStyle: {
-              fontFamily: "Jersey10",
-              fontSize: 28,
-              color: "#1e3a8a",
-            },
-            headerTitleAlign: "center",
-          }}
-        />
-        <Stack.Screen
-          name="Lobby"
-          component={LobbyScreen}
-          options={{
-            title: "Lobby",
-            headerTransparent: true,
-            headerShadowVisible: false,
-            headerTitleStyle: {
-              fontFamily: "Jersey10",
-              fontSize: 28,
-              color: "#1e3a8a",
-            },
-            headerTitleAlign: "center",
-          }}
-        />
-        <Stack.Screen
-          name="Game"
-          component={MainGameScreen}
-          options={{ 
-            title: "Game Screen",
-            headerTransparent: true,
-            headerShadowVisible: false,
-            headerTitleStyle: {
-              fontFamily: "Jersey10",
-              fontSize: 28,
-              color:"#1e3a8a",
-            }, 
-          }}
-        />
-        <Stack.Screen
-          name="HostWaiting"
-          component={HostWaitingScreen}
-          options={{ headerShown: false }}
-        />
+    <PlayerProvider>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Start">
+          <Stack.Screen
+            name="Start"
+            component={StartScreen}
+            options={{
+              title: "Cootan Main",
+              headerTransparent: true,
+              headerShadowVisible: false,
+              headerTitleStyle: {
+                fontFamily: "Jersey10",
+                fontSize: 28,
+                color: "#1e3a8a",
+              },
+              headerTitleAlign: "center",
+            }}
+          />
+          <Stack.Screen
+            name="Lobby"
+            component={LobbyScreen}
+            options={{
+              headerTransparent: true,
+              headerShadowVisible: false,
+              headerTitleStyle: {
+                fontFamily: "Jersey10",
+                fontSize: 28,
+                color: "#1e3a8a",
+              },
+              headerTitleAlign: "center",
+            }}
+          />
+          <Stack.Screen
+            name="Game"
+            component={MainGameScreen}
+            options={{ 
+              title: "Game Screen",
+              headerTransparent: true,
+              headerShadowVisible: false,
+              headerTitleStyle: {
+                fontFamily: "Jersey10",
+                fontSize: 28,
+                color:"#1e3a8a",
+              }, 
+            }}
+          />
+          <Stack.Screen
+            name="HostWaiting"
+            component={HostWaitingScreen}
+            options={{ headerShown: false }}
+          />
 
-        <Stack.Screen
-          name="PlayerWaiting"
-          component={PlayerWaitingScreen}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+          <Stack.Screen
+            name="PlayerWaiting"
+            component={PlayerWaitingScreen}
+            options={{ headerShown: false }}
+          />
+
+          <Stack.Screen
+            name="JoinGame"
+            component={JoinGame}
+            options={{ headerShown: false }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PlayerProvider>
   );
 }
 

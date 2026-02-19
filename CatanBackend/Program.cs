@@ -13,6 +13,7 @@ Resources are:
  - /host --> configures and connects the host
  - /host (just for browser checking) --> just allows for { serverIP/cloudflaredserverIP }/host to be used on a browser
  - /join --> going to need to flushed out but this is for joining the games for non-hosts
+ - /server-info --> cloudflare url
  - record HostGameRequest --> probably temporary, until these can be uploaded directly to gamestate
  - class GameVars --> same as ^^^
 ==================================================================================================================================================================================================================================================================
@@ -20,14 +21,25 @@ Resources are:
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(5082); // Listen on all interfaces, idk I saw this on a forum for testing
-});
-
+/*
+This is the security for testing on a local device
+*/
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:8082")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+/*
+This is the security for all devices
+*/
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
     {
         policy
             .AllowAnyOrigin()
@@ -39,7 +51,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseDeveloperExceptionPage();
-app.UseCors("AllowFrontend");
+app.UseCors("AllowFrontend"); // switch to allowall to not just test from your PC will
 
 var gameVars = new GameVars();
 
@@ -47,7 +59,7 @@ string? cloudflarePublicUrl = null;
 
 async Task StartCloudflareTunnelAsync()
 {
-    Console.WriteLine("Cloudlfare Starting\n\n\n");
+    Console.WriteLine("[CLOUDFLARE TUNNEL] Cloudlfare Starting");
     try
     {
         var psi = new ProcessStartInfo
@@ -134,19 +146,19 @@ app.MapGet("/server-info", () =>
 app.MapPost("/host", (HostGameRequest req) =>
 {
     if (req == null)
-        return Results.BadRequest("Invalid host payload");
+        return Results.BadRequest("[GAMESTATE] Invalid host payload");
     
     if (req.MapSize is not (5 or 7 or 9)) // this can get excised later, as I will theoretically make a map that will be reletively customizable
-        return Results.BadRequest("Bad Map Size!");
+        return Results.BadRequest("[GAMESTATE] Bad Map Size!");
 
     if (req.MapType != 1) // same with this
-        return Results.BadRequest("Bad Map Type!");
+        return Results.BadRequest("[GAMESTATE] Bad Map Type!");
 
     if (req.WinCondition != 1) // same with this
-        return Results.BadRequest("Invalid Win Condition!");
+        return Results.BadRequest("[GAMESTATE] Invalid Win Condition!");
     
     if (req.WinPoints < 1 || req.WinPoints > 100) // same with this (probably not fully, this is just kind of a check, maybe this can be used to pass in stuff later with negatives...)
-        return Results.BadRequest("Bad Points Reqest!");
+        return Results.BadRequest("[GAMESTATE] Bad Points Reqest!");
 
     //set local gamevars
     gameVars.MapSize = req.MapSize;
@@ -155,21 +167,28 @@ app.MapPost("/host", (HostGameRequest req) =>
     gameVars.WinPoints = req.WinPoints;
     gameVars.GameInitialized = true;
 
+    var hostGuid = Guid.NewGuid();
+    var hostPlayer = GameState.RegisterPlayer(req.HostUsername, hostGuid);
+    Console.WriteLine($"[PLAYER REGISTRATION] Host registered: {hostPlayer.Username}, GUID: {hostPlayer.GUID}");
+
     string serverAddress = cloudflarePublicUrl ?? "starting";
 
-    Console.WriteLine($"Game initialized? {gameVars.GameInitialized},");
-    Console.WriteLine($"MapSize? {gameVars.MapSize},");
-    Console.WriteLine($"WinPoints? {gameVars.WinPoints},");
-    Console.WriteLine($"ServerAddress? {serverAddress}");
+    Console.WriteLine($"[STARTUP] Game initialized? {gameVars.GameInitialized},");
+    Console.WriteLine($"[STARTUP] MapSize? {gameVars.MapSize},");
+    Console.WriteLine($"[STARTUP] WinPoints? {gameVars.WinPoints},");
+    Console.WriteLine($"[STARTUP] ServerAddress? {serverAddress}");
 
     return Results.Ok(new
     {
         success = true,
-        message = "Host registered... Waiting for players to join..."
+        message = "[PLAYER REGISTRATION] Host registered... Waiting for players to join...",
+        playerGUID = hostGuid,
+        serverIP = serverAddress
     });
 });
 
 // this doesnt need to be here I just use it for testing via the browser
+/*
 app.MapGet("/host", () =>
 {
     return Results.Ok(new
@@ -177,19 +196,54 @@ app.MapGet("/host", () =>
         serverIP = cloudflarePublicUrl ?? "starting"
     });
 });
+*/
 
-
-app.MapPost("/join", () =>
+app.MapPost("/join", (JoinRequest? req) =>
 {
-    if (!gameVars.GameInitialized)
-        return Results.BadRequest("Game not initialized!");
+    if (req == null || string.IsNullOrEmpty(req.Username))
+        return Results.BadRequest("[PLAYER REGISTRATION] No username provided");
 
-    return Results.Ok("Joined game!");
+    if (!gameVars.GameInitialized)
+        return Results.BadRequest("[GAMESTATE] Game not initialized!");
+
+    var playerGuid = Guid.NewGuid();
+    var player = GameState.RegisterPlayer(req.Username, playerGuid);
+
+    return Results.Ok(new
+    {
+        success = true,
+        message = "[GAMESTATE] ServerConnected",
+        playerId = player.PlayerID,
+        playerGUID = player.GUID
+    });
 });
+
+app.MapGet("/players", () =>
+{
+    var players = GameState.GetPlayers()
+        .Select(p => new { username = p.Username, guid = p.GUID })
+        .ToList();
+    return Results.Json(players);
+});
+
+/*
+app.MapPost("/start", (Guid guid) =>
+{
+    GameState.RequestStartGame(guid);
+    Console.WriteLine("[GAME] Game Started!");
+    return Results.Ok();
+});
+*/
 
 app.Run();
 
+public class JoinRequest
+{
+    public string Username { get; set; } = "Player";
+}
+
 record HostGameRequest(
+    string HostUsername,
     int MapSize,
     int MapType,
     int WinCondition,
@@ -215,27 +269,61 @@ Resources are:
 
 public static class GameState
 {
+    private static List<Player> Players = new List<Player>();
+    private static int NextPlayerId = 0;
+    public static Guid HostGUID { get; private set; }
+
+
     public static bool EntryPoint()
     {
-        
-        return false;
+        Console.WriteLine("[GAMESTATE] EntryPoint started");
+
+        // Register host as Player 0
+        HostGUID = Guid.NewGuid();
+        RegisterPlayer("Host", HostGUID);
+
+        // Later: wait for players
+        PlayerLoginLoop();
+
+        return true;
     }
 
     public static bool PlayerLoginLoop()
     {
-        bool startGame = false;
-        while(!startGame)
+        Console.WriteLine("[GAMESTATE] Waiting for players...");
+
+        while (true)
         {
-            
+            Console.WriteLine("Connected players:");
+            for (int i = 0; i < Players.Count; i++)
+            {
+                var player = Players[i];
+                var isHost = player.GUID == HostGUID ? " (Host)" : "";
+                Console.WriteLine($"Player {i + 1}: {player.Username}{isHost}");
+            }
+
+            System.Threading.Thread.Sleep(2000);
         }
-        return true;
     }
 
-    private static List<Player> Players = new List<Player>();
-    public static void RegisterPlayer()
+    public static Player RegisterPlayer(string username, Guid guid)
     {
-        Player player = new Player();
-        
+        var player = new Player
+        {
+            PlayerID = NextPlayerId++,
+            Username = username,
+            GUID = guid
+        };
+
+        Players.Add(player);
+
+        Console.WriteLine($"[GAMESTATE] Player registered: {username}, GUID: {guid}");
+        return player;
+    }
+
+    public static List<Player> GetPlayers()
+    {
+        return Players;
     }
     
     /*
