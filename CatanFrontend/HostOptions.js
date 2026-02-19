@@ -7,15 +7,11 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
   const [victoryPoints, setVictoryPoints] = useState(10);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalBackground}>
         <View style={styles.modalContainer}>
-          <Text style={styles.label}>Select Map Size:</Text>
+
+          <Text style={styles.label}>Select Map Size</Text>
           <View style={styles.mapSizeContainer}>
             {[5, 7, 9].map((size) => (
               <Pressable
@@ -35,7 +31,6 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
             Victory Points Needed: {victoryPoints}
           </Text>
           <Slider
-            style={{ width: 250, height: 40 }}
             minimumValue={5}
             maximumValue={30}
             step={1}
@@ -43,26 +38,36 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
             onValueChange={setVictoryPoints}
             minimumTrackTintColor="#e24b25"
             maximumTrackTintColor="#fff"
+            style={{ width: 250 }}
           />
 
           <Pressable
             style={styles.goButton}
-            onPress={() => onStartGame(mapSize, victoryPoints)}
+            onPress={() =>
+              onStartGame({
+                mapSize: Number(mapSize),
+                mapType: Number(1),
+                winCondition: Number(1),
+                winPoints: Number(victoryPoints),
+              })
+            }
           >
             <Text style={styles.buttonText}>Go</Text>
           </Pressable>
 
           <Pressable
-            style={[styles.goButton, { backgroundColor: "#e24b25", marginTop: 10 }]}
+            style={[styles.goButton, { backgroundColor: "#e24b25" }]}
             onPress={onClose}
           >
             <Text style={styles.buttonText}>Cancel</Text>
           </Pressable>
+
         </View>
       </View>
     </Modal>
   );
 }
+
 
 const styles = StyleSheet.create({
   modalBackground: {

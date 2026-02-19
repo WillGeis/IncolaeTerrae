@@ -34,13 +34,9 @@ export default function LobbyScreen({ navigation }) {
       <HostOptions
         visible={hostOptionsVisible}
         onClose={() => setHostOptionsVisible(false)}
-        onStartGame={(mapSize, victoryPoints) => {
+        onStartGame={(hostConfig) => {
           setHostOptionsVisible(false);
-          navigation.navigate("Game", {
-            mode: "host",
-            MAP_SIZE: mapSize,
-            victoryPoints,
-          });
+          navigation.navigate("HostWaiting", { hostConfig });
         }}
       />
     </View>

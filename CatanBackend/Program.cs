@@ -1,54 +1,243 @@
 using System.Collections;
+using System.Net;
+using System.Net.Sockets;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
+
+
+/*
+This Is the API Chunk, I have it at the top because I hate it the most
+==================================================================================================================================================================================================================================================================
+Resources are:
+ - /server-info --> this gives the cloudflare public ip address
+ - /host --> configures and connects the host
+ - /host (just for browser checking) --> just allows for { serverIP/cloudflaredserverIP }/host to be used on a browser
+ - /join --> going to need to flushed out but this is for joining the games for non-hosts
+ - record HostGameRequest --> probably temporary, until these can be uploaded directly to gamestate
+ - class GameVars --> same as ^^^
+==================================================================================================================================================================================================================================================================
+*/
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5082); // Listen on all interfaces, idk I saw this on a forum for testing
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 app.UseDeveloperExceptionPage();
+app.UseCors("AllowFrontend");
 
-app.MapGet("/testmap", () =>
+var gameVars = new GameVars();
+
+string? cloudflarePublicUrl = null;
+
+async Task StartCloudflareTunnelAsync()
 {
-    //GameState.ResourceDirectoryStarter();
-    //GameState.GenerateNewMaps(1, 5);
-    //GameState.GenerateNodeGraph(1, 5);
-
-    //GameState.Gameloop(2, 1, 5, 1, 10, true);
-
-    //return GameState.GetNodeGraphAsJson();
-    //return GameState.GetResourceMapAsJson();
-
-    GameState.ResourceDirectoryStarter();
-    GameState.GenerateNewMaps(1, 5);
-    GameState.GenerateNodeGraph(1, 5);
-
-    GameState.TestPlaceSettlements();
-
-    var rollHistory =
-        new List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>>();
-
-    for (int i = 0; i < 3; i++)
+    Console.WriteLine("Cloudlfare Starting\n\n\n");
+    try
     {
-        var rolledHexes = GameState.GatherRolledHexes();
-        rollHistory.Add(rolledHexes);
+        var psi = new ProcessStartInfo
+        {
+            FileName = "cloudflared", // cloudflare properly setup
+            Arguments = "tunnel --url http://localhost:5082 --loglevel info",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
 
-        GameState.AssociatePlayerResources(rolledHexes, 5);
+        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (string.IsNullOrWhiteSpace(e.Data)) return;
+
+
+            if (e.Data.Contains("trycloudflare.com"))
+            {
+                var match = Regex.Match(e.Data, @"https://[^\s]+");
+                if (match.Success)
+                {
+                    cloudflarePublicUrl = match.Value;
+                    Console.WriteLine($"[CLOUDFLARE TUNNEL] Public URL: {cloudflarePublicUrl}");
+                }
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) => // not really sure why this works but this causes the url to be correctly passed to the frontend
+        {
+            if (string.IsNullOrWhiteSpace(e.Data)) return;
+
+            if (e.Data.Contains("trycloudflare.com"))
+            {
+                var match = Regex.Match(e.Data, @"https://[^\s]+");
+                if (match.Success)
+                {
+                    cloudflarePublicUrl = match.Value;
+                    Console.WriteLine($"[CLOUDFLARE TUNNEL] Public URL: {cloudflarePublicUrl}");
+                }
+            }
+        };
+
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        // make sure public url is available
+        while (string.IsNullOrEmpty(cloudflarePublicUrl))
+        {
+            await Task.Delay(500);
+        }
+
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Could not start cloudflared: {ex.Message}");
+    }
+}
+
+_ = StartCloudflareTunnelAsync(); // entrypoint for cloudflared
+
+app.MapGet("/server-info", () =>
+{
+    if (string.IsNullOrWhiteSpace(cloudflarePublicUrl))
+    {
+        return Results.Ok(new
+        {
+            ready = false,
+            serverIP = (string?)null
+        });
     }
 
-    return new
+    return Results.Ok(new
     {
-        Rolls = GameState.GetRolledHexesHistoryAsJson(rollHistory),
-        Players = GameState.GetAllPlayersAsJson()
-    };
+        ready = true,
+        serverIP = cloudflarePublicUrl
+    });
 });
 
-app.MapPost("/api/send-array", (int[] data) =>
+
+app.MapPost("/host", (HostGameRequest req) =>
 {
-    return Results.Ok(GameState.SendArrayAsJson(data));
+    if (req == null)
+        return Results.BadRequest("Invalid host payload");
+    
+    if (req.MapSize is not (5 or 7 or 9)) // this can get excised later, as I will theoretically make a map that will be reletively customizable
+        return Results.BadRequest("Bad Map Size!");
+
+    if (req.MapType != 1) // same with this
+        return Results.BadRequest("Bad Map Type!");
+
+    if (req.WinCondition != 1) // same with this
+        return Results.BadRequest("Invalid Win Condition!");
+    
+    if (req.WinPoints < 1 || req.WinPoints > 100) // same with this (probably not fully, this is just kind of a check, maybe this can be used to pass in stuff later with negatives...)
+        return Results.BadRequest("Bad Points Reqest!");
+
+    //set local gamevars
+    gameVars.MapSize = req.MapSize;
+    gameVars.MapType = req.MapType;
+    gameVars.WinCondition = req.WinCondition;
+    gameVars.WinPoints = req.WinPoints;
+    gameVars.GameInitialized = true;
+
+    string serverAddress = cloudflarePublicUrl ?? "starting";
+
+    Console.WriteLine($"Game initialized? {gameVars.GameInitialized},");
+    Console.WriteLine($"MapSize? {gameVars.MapSize},");
+    Console.WriteLine($"WinPoints? {gameVars.WinPoints},");
+    Console.WriteLine($"ServerAddress? {serverAddress}");
+
+    return Results.Ok(new
+    {
+        success = true,
+        message = "Host registered... Waiting for players to join..."
+    });
+});
+
+// this doesnt need to be here I just use it for testing via the browser
+app.MapGet("/host", () =>
+{
+    return Results.Ok(new
+    {
+        serverIP = cloudflarePublicUrl ?? "starting"
+    });
+});
+
+
+app.MapPost("/join", () =>
+{
+    if (!gameVars.GameInitialized)
+        return Results.BadRequest("Game not initialized!");
+
+    return Results.Ok("Joined game!");
 });
 
 app.Run();
 
+record HostGameRequest(
+    int MapSize,
+    int MapType,
+    int WinCondition,
+    int WinPoints
+);
+class GameVars
+{
+    public int MapSize { get; set; }
+    public int MapType { get; set; } = 1; // default until I code it in
+    public int WinCondition { get; set; } = 1; // default until I code it in
+    public int WinPoints { get; set; }
+    public bool GameInitialized { get; set; }
+}
+
+
+/*
+This is going to be the handler for the API when the actual game begins
+==================================================================================================================================================================================================================================================================
+Resources are:
+ - ill figure it out
+ ==================================================================================================================================================================================================================================================================
+*/
+
 public static class GameState
 {
+    public static bool EntryPoint()
+    {
+        
+        return false;
+    }
+
+    public static bool PlayerLoginLoop()
+    {
+        bool startGame = false;
+        while(!startGame)
+        {
+            
+        }
+        return true;
+    }
+
+    private static List<Player> Players = new List<Player>();
+    public static void RegisterPlayer()
+    {
+        Player player = new Player();
+        
+    }
+    
     /*
     Global resources go here so that they do not break runtime
     ==================================================================================================================================================================================================================================================================
@@ -67,7 +256,7 @@ public static class GameState
      - 
     ==================================================================================================================================================================================================================================================================
     */
-    private static List<Player> Players = new List<Player>();
+    
     
     public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
     {
@@ -108,23 +297,6 @@ public static class GameState
     {
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
-        // player setup
-        for (int i = 0; i < numPlayers; i++)
-        {
-            Players.Add(new Player
-            {
-                PlayerID = i,
-                Name = $"Player {i + 1}",
-                Wheat = 0,
-                Bricks = 0,
-                Ore = 0,
-                Wood = 0,
-                Sheep = 0,
-                KnightsPlayed = 0,
-                HasLargestArmy = false,
-                HasLongestRoad = false
-            });
-        }
         return true;
     }
 
@@ -928,21 +1100,6 @@ public static class GameState
     }
 
     /*
-    API Method for sending arrays as JSON
-    ==================================================================================================================================================================================================================================================================
-    NO CONSTRUCTORS:
-     - 
-    ==================================================================================================================================================================================================================================================================
-    */
-    public static object SendArrayAsJson<T>(T[] data)
-    {
-        if (data == null)
-            return new { error = "Data array is null" };
-
-        return data;
-    }
-
-    /*
     Test Methods
     ==================================================================================================================================================================================================================================================================
     NO CONSTRUCTORS:
@@ -955,9 +1112,9 @@ public static class GameState
             throw new Exception("NodeGraph not initialized");
         Players.Clear();
 
-        Players.Add(new Player { PlayerID = 0, Name = "Player 1" });
+        Players.Add(new Player { PlayerID = 0, Username = "Player 1" });
 
-        Players.Add(new Player { PlayerID = 1, Name = "Player 2" });
+        Players.Add(new Player { PlayerID = 1, Username = "Player 2" });
 
         // Player 0 (Displayed as Player 1) settlement at (0,0)
         if (NodeGraph.ContainsKey((0, 0)))
@@ -992,6 +1149,49 @@ public static class GameState
      - GetPlayerResourcesAsJson: serializes player resources, used after turn 1
      - GetNodeGraphAndGetPlayerResources: used in testting because I have not written the frontend
     ==================================================================================================================================================================================================================================================================
+    */
+    // Server Testing Area
+    /*
+    app.MapGet("/testmap", () =>
+    {
+        //GameState.ResourceDirectoryStarter();
+        //GameState.GenerateNewMaps(1, 5);
+        //GameState.GenerateNodeGraph(1, 5);
+
+        //GameState.Gameloop(2, 1, 5, 1, 10, true);
+
+        //return GameState.GetNodeGraphAsJson();
+        //return GameState.GetResourceMapAsJson();
+
+        //GameState.ResourceDirectoryStarter();
+        //GameState.GenerateNewMaps(1, 5);
+        //GameState.GenerateNodeGraph(1, 5);
+
+        //GameState.TestPlaceSettlements();
+        var rollHistory =
+            new List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>>();
+
+        for (int i = 0; i < 3; i++)
+        {
+            var rolledHexes = GameState.GatherRolledHexes();
+            rollHistory.Add(rolledHexes);
+
+            GameState.AssociatePlayerResources(rolledHexes, 5);
+        }
+
+        return new
+        {
+            Rolls = GameState.GetRolledHexesHistoryAsJson(rollHistory),
+            Players = GameState.GetAllPlayersAsJson()
+        };
+    });
+
+    app.MapPost("/api/send-array", (int[] data) =>
+    {
+        return Results.Ok(GameState.SendArrayAsJson(data));
+    });
+
+    app.Run();
     */
     public static object GetResourceMapAsJson()
     {
@@ -1049,7 +1249,7 @@ public static class GameState
         return new
         {
             p.PlayerID,
-            p.Name,
+            p.Username,
             Resources = new
             {
                 p.Wheat,
@@ -1094,7 +1294,7 @@ public static class GameState
         return Players.Select(p => new
         {
             p.PlayerID,
-            p.Name,
+            p.Username,
             Resources = new
             {
                 p.Wheat,
@@ -1170,7 +1370,8 @@ public class Node
 public class Player
 {
     public int PlayerID { get; set; }
-    public string Name { get; set; }
+    public string Username { get; set; }
+    public Guid GUID { get; set; }
     public int Wheat { get; set; }
     public int Bricks { get; set; }
     public int Ore { get; set; }

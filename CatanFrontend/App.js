@@ -8,6 +8,8 @@ import { useState, useEffect } from "react";
 import StartScreen from "./StartScreen";
 import MainGameScreen from "./MainGameScreen";
 import LobbyScreen from "./LobbyScreen";
+import HostWaitingScreen from "./HostWaitingScreen";
+import PlayerWaitingScreen from "./PlayerWaitingScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +74,17 @@ export default function App() {
               color:"#1e3a8a",
             }, 
           }}
+        />
+        <Stack.Screen
+          name="HostWaiting"
+          component={HostWaitingScreen}
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="PlayerWaiting"
+          component={PlayerWaitingScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
