@@ -5,9 +5,12 @@ const PlayerContext = createContext();
 export function PlayerProvider({ children }) {
   const [username, setUsername] = useState("");
   const [guid, setGuid] = useState(null);
+  const [isHost, setIsHost] = useState(false);
 
   return (
-    <PlayerContext.Provider value={{ username, setUsername, guid, setGuid }}>
+    <PlayerContext.Provider
+      value={{ username, setUsername, guid, setGuid, isHost, setIsHost }}
+    >
       {children}
     </PlayerContext.Provider>
   );

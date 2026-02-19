@@ -59,7 +59,7 @@ export default function App() {
               headerTitleStyle: {
                 fontFamily: "Jersey10",
                 fontSize: 28,
-                color: "#1e3a8a",
+                color: "#8a8a1e",
               },
               headerTitleAlign: "center",
             }}

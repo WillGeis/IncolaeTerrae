@@ -7,45 +7,41 @@ export default function PlayerWaitingScreen() {
   const [serverIP, setServerIP] = useState("Loading...............");
   const [players, setPlayers] = useState([]);
 
+  console.log("[DEBUG] PlayerWaitingScreen render | isHost =", isHost);
+
   useEffect(() => {
     let isMounted = true;
 
     const fetchServerIP = async () => {
+      console.log("[DEBUG] Fetching server-info...");
       try {
-        let retries = 0;
+        const res = await fetch("http://localhost:5082/server-info");
+        const data = await res.json();
 
-        while (retries < 30) {
-          const res = await fetch("http://localhost:5082/server-info");
-          if (!res.ok) throw new Error("Failed to fetch server info");
-          const data = await res.json();
+        console.log("[DEBUG] /server_info response:", data);
 
-          if (data.ready && data.serverIP) {
-            if (isMounted) setServerIP(data.serverIP);
-            break;
-          }
-
-          retries++;
-          await new Promise(res => setTimeout(res, 500));
+        if (isMounted && data.ready && data.serverIP) {
+          setServerIP(data.serverIP);
         }
       } catch (err) {
-        console.error(err);
-        if (isMounted) setServerIP("Error fetching server URL");
+        console.error("[ERROR] /server_info failed:", err);
+        if (isMounted) setServerIP("Error!");
       }
     };
 
     const fetchPlayers = async () => {
       try {
         const res = await fetch("http://localhost:5082/players");
-        if (!res.ok) throw new Error("Failed to fetch players");
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : [];
+        const data = await res.json();
         if (isMounted) setPlayers(data);
       } catch (err) {
-        console.error(err);
+        console.error("[ERROR] fetch players failed:", err);
       }
     };
 
     fetchServerIP();
+    fetchPlayers();
+
     const interval = setInterval(fetchPlayers, 1000);
 
     return () => {
@@ -55,24 +51,38 @@ export default function PlayerWaitingScreen() {
   }, []);
 
   const copyToClipboard = () => {
+    console.log("[DEBUG] Copy IP:", serverIP);
     try {
       navigator.clipboard.writeText(serverIP);
       Alert.alert("Copied to clipboard!", serverIP);
     } catch {
-      Alert.alert("Clipboard not supported.");
+      Alert.alert("Clipboard not supported...");
     }
   };
 
-  const startGame = async () => {
+  const handleStartGame = async () => {
+    console.log("[DEBUG] Go button pressed!");
+    console.log("[DEBUG] Host GUID:", guid);
+
     try {
-      await fetch("http://localhost:5082/start-game", {
+      const res = await fetch("http://localhost:5082/startGame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guid })
       });
-      Alert.alert("Game started!");
+
+      console.log("[DEBUG] startGame HTTP status:", res.status);
+
+      const data = await res.json();
+      console.log("[DEBUG] startGame response:", data);
+
+      if (data.success) {
+        Alert.alert("Game Started!", data.message);
+      } else {
+        Alert.alert("Start failed", data.message ?? "Unknown error");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("[ERROR] startGame request failed:", err);
+      Alert.alert("Failed to start game");
     }
   };
 
@@ -82,19 +92,24 @@ export default function PlayerWaitingScreen() {
 
       <View style={styles.playerList}>
         {players.map((p, i) => (
-          <Text key={i} style={styles.player}>
-            Player {i + 1}: {p.username} {p.guid === players[0].guid ? "(Host)" : ""}
+          <Text key={p.guid} style={styles.player}>
+            Player {i + 1}: {p.username}
+            {i === 0 ? " (Host)" : ""}
           </Text>
         ))}
       </View>
 
-      <Text style={styles.status}>
-        Waiting for more players...
-      </Text>
+      <Text style={styles.status}>Waiting for more players...</Text>
 
       {isHost && (
-        <Pressable style={styles.startButton} onPress={startGame}>
-          <Text style={styles.buttonText}>Start Game</Text>
+        <Pressable
+          onPress={handleStartGame}
+          style={[
+            styles.startButton,
+            { backgroundColor: "lime" },
+          ]}
+        >
+          <Text style={styles.buttonText}>Go</Text>
         </Pressable>
       )}
 
@@ -107,29 +122,29 @@ export default function PlayerWaitingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#090d18", padding: 40 },
-  title: { fontSize: 28, color: "#e0e7ff", marginBottom: 20, textAlign: "center" },
+  title: { fontSize: 20, color: "#e0e7ff", marginBottom: 20, textAlign: "center", fontFamily: "Jersey10" },
   playerList: { marginTop: 20 },
-  player: { fontSize: 18, color: "#00ff99", marginBottom: 10 },
-  status: { marginTop: 40, color: "#aaa", textAlign: "center" },
+  player: { fontSize: 40, color: "#00ff99", marginBottom: 10, fontFamily: "Jersey10" },
+  status: { marginTop: 40, color: "#aaa", textAlign: "center", fontFamily: "Jersey10", fontSize: 30 },
   startButton: {
-    backgroundColor: "#e24b25",
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 12,
     marginTop: 30,
     alignSelf: "center",
   },
-  buttonText: { color: "#000", fontSize: 20, fontWeight: "bold", textAlign: "center" },
+  buttonText: { color: "#000", fontSize: 40, fontWeight: "bold", fontFamily: "Jersey10" },
   ipBox: {
     position: "absolute",
     top: 20,
     right: 20,
     backgroundColor: "#1e1e2f",
+    fontFamily: "Jersey10",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "#00ff99",
   },
-  ipText: { color: "#00ff99", fontWeight: "bold" },
+  ipText: { color: "#00ff99", fontWeight: "bold", fontFamily: "Jersey10", fontSize: 30 },
 });

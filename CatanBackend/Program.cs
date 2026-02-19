@@ -51,7 +51,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseDeveloperExceptionPage();
-app.UseCors("AllowFrontend"); // switch to allowall to not just test from your PC will
+app.UseCors("AllowAll"); // switch to allowall to not just test from your PC will
 
 var gameVars = new GameVars();
 
@@ -161,22 +161,42 @@ app.MapPost("/host", (HostGameRequest req) =>
         return Results.BadRequest("[GAMESTATE] Bad Points Reqest!");
 
     //set local gamevars
-    gameVars.MapSize = req.MapSize;
-    gameVars.MapType = req.MapType;
-    gameVars.WinCondition = req.WinCondition;
-    gameVars.WinPoints = req.WinPoints;
-    gameVars.GameInitialized = true;
+    if (!gameVars.GameInitialized)
+    {
+        gameVars.MapSize = req.MapSize;
+        gameVars.MapType = req.MapType;
+        gameVars.WinCondition = req.WinCondition;
+        gameVars.WinPoints = req.WinPoints;
+        gameVars.GameInitialized = true;
+    }
+
+    var existingHost = GameState.GetPlayers()
+        .FirstOrDefault(p => p.Username == req.HostUsername && p.IsHost);
+
+    if (existingHost != null)
+    {
+        return Results.Ok(new
+        {
+            success = true,
+            message = "[PLAYER REGISTRATION] Host already registered, returning existing host",
+            playerGUID = existingHost.GUID,
+            serverIP = cloudflarePublicUrl
+        });
+    }
 
     var hostGuid = Guid.NewGuid();
-    var hostPlayer = GameState.RegisterPlayer(req.HostUsername, hostGuid);
+    var hostPlayer = GameState.RegisterPlayer(req.HostUsername, hostGuid, isHost: true);
     Console.WriteLine($"[PLAYER REGISTRATION] Host registered: {hostPlayer.Username}, GUID: {hostPlayer.GUID}");
 
     string serverAddress = cloudflarePublicUrl ?? "starting";
 
+    // extra debugs
+    /*
     Console.WriteLine($"[STARTUP] Game initialized? {gameVars.GameInitialized},");
     Console.WriteLine($"[STARTUP] MapSize? {gameVars.MapSize},");
     Console.WriteLine($"[STARTUP] WinPoints? {gameVars.WinPoints},");
     Console.WriteLine($"[STARTUP] ServerAddress? {serverAddress}");
+    */
 
     return Results.Ok(new
     {
@@ -216,6 +236,12 @@ app.MapPost("/join", (JoinRequest? req) =>
         playerId = player.PlayerID,
         playerGUID = player.GUID
     });
+});
+
+app.MapPost("/startGame", () =>
+{
+    GameState.StartGame();
+    return Results.Ok(new { success = true, message = "Game started!" });
 });
 
 app.MapGet("/players", () =>
@@ -272,27 +298,34 @@ public static class GameState
     private static List<Player> Players = new List<Player>();
     private static int NextPlayerId = 0;
     public static Guid HostGUID { get; private set; }
+    public static bool GameStarted { get; private set; } = false;
 
 
     public static bool EntryPoint()
     {
         Console.WriteLine("[GAMESTATE] EntryPoint started");
 
-        // Register host as Player 0
         HostGUID = Guid.NewGuid();
         RegisterPlayer("Host", HostGUID);
 
-        // Later: wait for players
         PlayerLoginLoop();
+
+        while (true)
+        {
+            Console.WriteLine("[GAMESTATE] Game Successfully Started Loop");
+            System.Threading.Thread.Sleep(20000);
+        }
 
         return true;
     }
 
-    public static bool PlayerLoginLoop()
+    public static void StartGame() => GameStarted = true;
+
+    public static void PlayerLoginLoop()
     {
         Console.WriteLine("[GAMESTATE] Waiting for players...");
 
-        while (true)
+        while (!GameStarted)
         {
             Console.WriteLine("Connected players:");
             for (int i = 0; i < Players.Count; i++)
@@ -304,15 +337,18 @@ public static class GameState
 
             System.Threading.Thread.Sleep(2000);
         }
+
+        Console.WriteLine("[GAMESTATE] Game Started! Exiting player wait loop...");
     }
 
-    public static Player RegisterPlayer(string username, Guid guid)
+    public static Player RegisterPlayer(string username, Guid guid, bool isHost = false)
     {
         var player = new Player
         {
             PlayerID = NextPlayerId++,
             Username = username,
-            GUID = guid
+            GUID = guid,
+            IsHost = isHost
         };
 
         Players.Add(player);
@@ -1460,6 +1496,7 @@ public class Player
     public int PlayerID { get; set; }
     public string Username { get; set; }
     public Guid GUID { get; set; }
+    public bool IsHost { get; set; } = false;
     public int Wheat { get; set; }
     public int Bricks { get; set; }
     public int Ore { get; set; }
