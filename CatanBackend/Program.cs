@@ -161,13 +161,13 @@ app.MapPost("/host", (HostGameRequest req) =>
         return Results.BadRequest("[GAMESTATE] Bad Points Reqest!");
 
     //set local gamevars
-    if (!gameVars.GameInitialized)
+    if (!Globals.GameVars.GameInitialized)
     {
-        gameVars.MapSize = req.MapSize;
-        gameVars.MapType = req.MapType;
-        gameVars.WinCondition = req.WinCondition;
-        gameVars.WinPoints = req.WinPoints;
-        gameVars.GameInitialized = true;
+        Globals.GameVars.MapSize = req.MapSize;
+        Globals.GameVars.MapType = req.MapType;
+        Globals.GameVars.WinCondition = req.WinCondition;
+        Globals.GameVars.WinPoints = req.WinPoints;
+        Globals.GameVars.GameInitialized = true;
     }
 
     var existingHost = GameState.GetPlayers()
@@ -275,7 +275,7 @@ record HostGameRequest(
     int WinCondition,
     int WinPoints
 );
-class GameVars
+public class GameVars
 {
     public int MapSize { get; set; }
     public int MapType { get; set; } = 1; // default until I code it in
@@ -283,6 +283,12 @@ class GameVars
     public int WinPoints { get; set; }
     public bool GameInitialized { get; set; }
 }
+
+public static class Globals
+{
+    public static GameVars GameVars = new GameVars();
+}
+
 
 
 /*
@@ -310,11 +316,7 @@ public static class GameState
 
         PlayerLoginLoop();
 
-        while (true)
-        {
-            Console.WriteLine("[GAMESTATE] Game Successfully Started Loop");
-            System.Threading.Thread.Sleep(20000);
-        }
+        Gameloop(Players.Count, Globals.GameVars.MapType, Globals.GameVars.MapSize, Globals.GameVars.WinCondition, Globals.GameVars.WinPoints, false);
 
         return true;
     }
@@ -387,6 +389,8 @@ public static class GameState
         MapSizeGlobal = mapSize;
         GameStartupPhase(numPlayers, mapType, mapSize);
 
+
+
         int numTurn = 0;
 
         bool winTestFlag2ndTurn = false;
@@ -402,6 +406,66 @@ public static class GameState
             numTurn++;
         }
         return false;
+    }
+
+    public static IResult GameStatePackager()
+    {
+        /*
+        Welp, looks like I write too long of methods, but anywhoo this is the section that sets each of the arrays for a readable resource map for the frontend
+
+        ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
+        */
+
+        int hexDataLength = ((MapSizeGlobal - 1) / 2) * ((MapSizeGlobal - 1) / 2) + 6 * ((MapSizeGlobal - 1) / 2) + 3;
+        int[] resourceMapFrontendReadable = new int[hexDataLength];
+        int[] resourceRollsFrontendReadable = new int[hexDataLength];
+        int robberX = -1;
+        int robberY = -1;
+        
+        int midpoint = (MapSizeGlobal / 2);
+        int xSize = 3;
+        
+        int currentHex = 0;
+        for (int i = 0; i < MapSizeGlobal; i++)
+        {
+            for (int j = 0; i < xSize; j++)
+            {
+                resourceMapFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceTypeID;
+                resourceRollsFrontendReadable[currentHex] = ResourceMap[(i, j)][1].resourceRoll;
+
+                if (ResourceMap[(i, j)][2].hasRobber == true) {robberX = j; robberY = i;}
+
+                if (i < midpoint)
+                {
+                    xSize++;
+                }
+                else
+                {
+                    xSize--;
+                }
+
+                // This is a code block for saftey because I cannot do math...
+                if (xSize < 3)
+                {
+                    i = 999;
+                }
+                currentHex++;
+            }
+        }
+
+        /*
+        Yeah this is the node part, I am not looking forward to it
+        */
+        
+
+        return Results.Json(new
+        {
+            resourcemapjson = resourceMapFrontendReadable,
+            resourcerollsjson = resourceRollsFrontendReadable,
+            robberxjson = robberX,
+            robberyjson = robberY,
+
+        });
     }
 
     public static bool CheckWinCondition(List<Player> players, int winCondition, int winPoints)
