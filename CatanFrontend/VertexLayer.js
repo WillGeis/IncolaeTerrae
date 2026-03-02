@@ -6,8 +6,8 @@ function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
 
   switch (MAP_SIZE) {
     case 5:
-      xSpacing = HEX_WIDTH / 1.01;
-      oddRowOffset = HEX_HEIGHT / 5.15;
+      xSpacing = HEX_WIDTH / .99;
+      oddRowOffset = HEX_HEIGHT / 4.9;
       evenRowOffset = HEX_HEIGHT / 1.75;
       horizontalShift = -20;
       verticalShift = -130;
@@ -49,6 +49,7 @@ function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
 
 export default function VertexLayer({
   vertexData,
+  edgeData,
   HEX_WIDTH,
   HEX_HEIGHT,
   HEX_SIZE,
@@ -101,8 +102,8 @@ export default function VertexLayer({
                     position: "absolute",
                     left: x,
                     top: 0,
-                    width: HEX_SIZE * 0.3,
-                    height: HEX_SIZE * 0.3,
+                    width: HEX_SIZE * 0.22,
+                    height: HEX_SIZE * 0.22,
                     borderRadius: HEX_SIZE * 0.15,
                     backgroundColor: value === 1 ? "black" : "white",
                     borderWidth: 1,

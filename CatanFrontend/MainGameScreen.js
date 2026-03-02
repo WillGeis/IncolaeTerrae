@@ -8,7 +8,10 @@ const SCALAR = 2.7;
 const HEX_SIZE = 60 * SCALAR;
 const HEX_WIDTH = HEX_SIZE;
 const HEX_HEIGHT = HEX_SIZE * 1.1547;
+const ROAD_WIDTH = 14;
 const MAP_SIZE = 5;
+
+const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
 export default function MainGameScreen({route}) {
   const MAP_SIZE = route.params?.MAP_SIZE || 5;
@@ -16,6 +19,10 @@ export default function MainGameScreen({route}) {
   const resourceData = [2, 3, 0, 1, 4]; // Wheat, Brick, Ore, Wood, Sheep
   let hexData = [];
   let vertexData = [];
+  let edgeData = []; 
+  let hexRollData = []; 
+  let robberHex = -1;
+  let roadSelectorVisible = true; // set this to false later
 
   switch (MAP_SIZE) {
     case 5: // Hex data MapSize == 5
@@ -27,20 +34,51 @@ export default function MainGameScreen({route}) {
         5, 6, 1
       ];
       
+      hexRollData = [
+        5, 2, 6,
+        3, 8, 10, 9,
+        12, 11, 4, 8, 10,
+        9, 4, 5, 6,
+        3, 11, 2
+      ];
+
+      robberHex = 7;
       
       vertexData = [
-        [ 1, 1, 1], // 3
+        [ -1, -1, -1], // 3
         [ -1, -1, -1, -1], // 4
-        [ 1, 1, 1, 1], // 4
+        [ -1, -1, -1, -1], // 4
         [ -1, -1, -1, -1, -1 ], // 5
-        [ 1, 1, 1, 1, 1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
         [ -1,  -1, -1, -1, -1, -1 ], // 6
-        [ 1, 1, 1, 1, 1, 1 ], // 6
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
         [ -1, -1, -1, -1, -1 ], // 5
-        [ 1, 1, 1, 1, 1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
         [ -1, -1, -1, -1], // 4
-        [ 1, 1, 1, 1], // 4
+        [ -1, -1, -1, -1], // 4
         [ -1, -1, -1] // 3
+      ];
+
+      edgeData= [ 
+        [1, -1, -1, -1, -1, -1], // hex 1 data
+        [-1, -1, -1, -1, -1, -1], // hex 2 data
+        [-1, -1, -1, -1, -1, -1], // hex 3 data
+        [-1, -1, -1, -1, -1, -1], // hex 4 data
+        [-1, -1, -1, -1, -1, -1], // hex 5 data
+        [-1, -1, -1, -1, -1, -1], // hex 6 data
+        [-1, -1, -1, -1, -1, -1], // hex 7 data
+        [-1, -1, -1, -1, -1, -1], // hex 8 data
+        [-1, -1, -1, -1, 1, -1], // hex 9 data
+        [-1, -1, -1, -1, -1, -1], // hex 10 data
+        [-1, -1, -1, -1, -1, -1], // hex 11 data
+        [-1, -1, -1, -1, -1, -1], // hex 12 data
+        [-1, -1, -1, 1, -1, -1], // hex 13 data
+        [-1, -1, -1, -1, -1, -1], // hex 14 data
+        [-1, -1, -1, -1, -1, -1], // hex 15 data
+        [-1, -1, -1, -1, -1, -1], // hex 16 data
+        [-1, -1, -1, -1, -1, -1], // hex 17 data
+        [-1, -1, -1, -1, -1, -1], // hex 18 data
+        [-1, -1, -1, -1, -1, -1], // hex 19 data
       ];
       break;
     case 7: // Hex data MapSize == 7
@@ -120,10 +158,15 @@ export default function MainGameScreen({route}) {
       <View style={styles.gridContainer}>
         <HexGridScreen
             hexData={hexData}
+            edgeData={edgeData}
+            hexRollData={hexRollData}
+            robberHex={robberHex}
+            roadSelectorVisible={roadSelectorVisible}
             HEX_SIZE={HEX_SIZE}
             HEX_WIDTH={HEX_WIDTH}
             HEX_HEIGHT={HEX_HEIGHT}
             MAP_SIZE={MAP_SIZE}
+            ROAD_WIDTH={ROAD_WIDTH}
             />
         <VertexLayer
             vertexData={vertexData}
