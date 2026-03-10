@@ -1025,7 +1025,6 @@ public static class GameState
     { 3, "Ore" },
     { 4, "Wood" },
     { 5, "Sheep" },
-    { 6, "Desert" }
 
     public static Dictionary<(int x, double y), int> BoatConnections; // dont forget hoes too
     public static Dictionary<double, int> NodeLayout;
@@ -1068,7 +1067,7 @@ public static class GameState
 
         for (int i = 0; i < totalBoats; i++)
         {
-            int specificResource =rng.Next(0, 7);
+            int specificResource =rng.Next(0, 6);
             
             connectionX1 = PerimeterNodes[i * spacing].x;
             connectionY1 = PerimeterNodes[i * spacing].y;

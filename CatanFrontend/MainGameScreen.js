@@ -65,8 +65,8 @@ export default function MainGameScreen({route}) {
 
       boatData = [
         [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
-        [ 1, 0, 1, 2, 1], // boat 2 Wheat //
-        [ 2, 2, 3, 3, 2], // boat 3 Brick //
+        [ 2, 0, 3, 1, 1], // boat 2 Wheat //
+        [ 3, 2, 4, 3, 2], // boat 3 Brick //
         [ 5, 5, 5, 6, 3], // boat 4 Ore //
         [ 4, 8, 3, 9, 4], // boat 5 Wood
         [ 2, 10, 1, 11, 5], // boat 6 Sheep //
@@ -189,6 +189,7 @@ export default function MainGameScreen({route}) {
             />
         <VertexLayer
             vertexData={vertexData}
+            boatData={boatData}
             HEX_WIDTH={HEX_WIDTH}
             HEX_HEIGHT={HEX_HEIGHT}
             HEX_SIZE={HEX_SIZE}
