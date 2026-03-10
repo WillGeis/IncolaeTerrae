@@ -12,6 +12,7 @@ import LobbyScreen from "./LobbyScreen";
 import HostWaitingScreen from "./HostWaitingScreen";
 import PlayerWaitingScreen from "./PlayerWaitingScreen";
 import JoinGame from "./JoinGame";
+import LoadingScreenMain from "./LoadingMainScreen";
 import { PlayerProvider, usePlayer } from "./PlayerContext";
 
 
@@ -95,6 +96,12 @@ export default function App() {
           <Stack.Screen
             name="JoinGame"
             component={JoinGame}
+            options={{ headerShown: false }}
+          />
+
+          <Stack.Screen
+            name="Loading"
+            component={LoadingScreenMain}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

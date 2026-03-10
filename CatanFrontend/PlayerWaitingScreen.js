@@ -4,7 +4,7 @@ import { usePlayer } from "./PlayerContext";
 
 const API_BASE = "http://localhost:5082";
 
-export default function PlayerWaitingScreen() {
+export default function PlayerWaitingScreen({ navigation }) {
   const { guid, isHost } = usePlayer();
   const [serverIP, setServerIP] = useState("Loading...............");
   const [players, setPlayers] = useState([]);
@@ -86,7 +86,7 @@ export default function PlayerWaitingScreen() {
       console.log("[DEBUG] startGame response:", data);
 
       if (data.success) {
-        Alert.alert("Game Started!", data.message);
+        navigation.replace("Loading");
       } else {
         Alert.alert("Start failed", data.message ?? "Unknown error");
       }

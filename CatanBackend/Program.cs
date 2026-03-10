@@ -491,7 +491,7 @@ public static class GameState
         try
         {
             var (resourceMap, resourceRolls) = PackageResourceMap();
-            var nodeGraph = PackageNodeGraph();
+            var nodeGraph = PackageNodeData();
             var robberHex = PackageRobberHex();
             var boatData = PackageBoatData();
             var edgeData = PackageEdgeData();
@@ -611,29 +611,27 @@ public static class GameState
 
     2D array, nodes are numbered as -1 being a null tri, and subsequent numbers being player IDS
     */
-    private static object PackageNodeGraph()
+    private static int[][] PackageNodeData()
     {
         if (NodeGraph == null)
-            return new { error = "NodeGraph is not initialized" };
+            throw new InvalidOperationException("NodeGraph is not initialized!");
 
-        var result = new Dictionary<string, object>();
+        var rowGroups = NodeGraph.Keys
+            .GroupBy(k => k.y)
+            .OrderBy(g => g.Key);
 
-        foreach (var entry in NodeGraph)
+        var result = new List<int[]>();
+
+        foreach (var row in rowGroups)
         {
-            var key = $"{entry.Key.x},{entry.Key.y}";
-
-            result[key] = new
-            {
-                SettlementPlayerID = entry.Value.SettlementPlayerID,
-                Edges = entry.Value.Edges.Select(e => new
-                {
-                    RoadPlayerID = e.RoadPlayerID,
-                    ConnectedNode = new { x = e.ConnectedNode.x, y = e.ConnectedNode.y }
-                }).ToList()
-            };
+            var sortedNodes = row.OrderBy(k => k.x).ToList();
+            int[] rowData = sortedNodes
+                .Select(k => NodeGraph[k].SettlementPlayerID)
+                .ToArray();
+            result.Add(rowData);
         }
 
-        return result;
+        return result.ToArray();
     }
 
     /*

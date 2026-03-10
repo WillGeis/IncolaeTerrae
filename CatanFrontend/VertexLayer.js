@@ -2,6 +2,7 @@ import React from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 
 const boatColors = ["gray", "blue", "yellow", "red", "green", "white"];
+const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
 function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
   let xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift;
@@ -60,7 +61,7 @@ function getVertexScreenPos(rowIndex, colIndex, vertexData, xSpacing, oddRowOffs
 
   const rowWidth = vertexData[rowIndex].length * xSpacing;
   const rowOffset = (totalWidth - rowWidth) / 2 + horizontalShift;
-  const x = rowOffset + colIndex * xSpacing + (HEX_SIZE * 0.11); // center of dot
+  const x = rowOffset + colIndex * xSpacing + (HEX_SIZE * 0.11);
 
   return { x, y: y + (HEX_SIZE * 0.11) };
 }
@@ -98,12 +99,9 @@ export default function VertexLayer({
       const p1 = getVertexScreenPos(row1, col1, vertexData, xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift, totalWidth, HEX_SIZE);
       const p2 = getVertexScreenPos(row2, col2, vertexData, xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift, totalWidth, HEX_SIZE);
 
-      // Midpoint between the two vertices
       const midX = (p1.x + p2.x) / 2;
       const midY = (p1.y + p2.y) / 2;
 
-      // Direction from center of screen outward
-      // We treat (0,0) as the center reference since we're in absoluteFill
       const centerX = totalWidth / 2 + horizontalShift;
       const centerY = vertexData.length * ((oddRowOffset + evenRowOffset) / 2) / 2;
 
@@ -111,24 +109,18 @@ export default function VertexLayer({
       const dy = midY - centerY;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
 
-      // Boat position shifted outward from midpoint
       const boatX = midX + (dx / len) * OUTWARD_SHIFT;
       const boatY = midY + (dy / len) * OUTWARD_SHIFT;
 
       const color = boatColors[resourceType] ?? "gray";
 
-      // Line from boat center to p1
       const line1 = getLineStyle(boatX, boatY, p1.x, p1.y, LINE_WIDTH);
-      // Line from boat center to p2
       const line2 = getLineStyle(boatX, boatY, p2.x, p2.y, LINE_WIDTH);
 
       return (
         <View key={boatIndex}>
-          {/* Line to vertex 1 */}
           <View style={[styles.line, line1, { backgroundColor: color }]} />
-          {/* Line to vertex 2 */}
           <View style={[styles.line, line2, { backgroundColor: color }]} />
-          {/* Boat box */}
           <View
             style={{
               position: "absolute",
@@ -146,8 +138,7 @@ export default function VertexLayer({
   }
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      {/* Boats rendered beneath vertices */}
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
       {renderBoats()}
 
       {vertexData.map((row, rowIndex) => {
@@ -174,9 +165,10 @@ export default function VertexLayer({
             }}
           >
             {row.map((value, colIndex) => {
-              if (value !== 1 && value !== -1) return null;
+              if (value === undefined || value === null) return null;
 
               const x = colIndex * xSpacing;
+              const dotColor = value >= 0 ? playerColors[value] : "#94a3b8";
 
               return (
                 <Pressable
@@ -189,9 +181,10 @@ export default function VertexLayer({
                     width: HEX_SIZE * 0.22,
                     height: HEX_SIZE * 0.22,
                     borderRadius: HEX_SIZE * 0.15,
-                    backgroundColor: value === 1 ? "black" : "white",
-                    borderWidth: 1,
-                    borderColor: "black",
+                    backgroundColor: dotColor,
+                    borderWidth: value >= 0 ? 2 : 0,
+                    borderColor: value >= 0 ? "#fff" : "transparent",
+                    zIndex: 10,
                   }}
                 />
               );

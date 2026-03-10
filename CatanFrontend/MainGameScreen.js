@@ -15,7 +15,27 @@ const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cya
 
 export default function MainGameScreen({route}) {
   const MAP_SIZE = route.params?.MAP_SIZE || 5;
-  
+  const gameState = route.params?.gameState;
+
+  const hexData = gameState?.resourcemapjson ?? [];
+  const hexRollData = gameState?.resourcerollsjson ?? [];
+  const edgeData = gameState?.edgedatajson ?? [];
+  const boatData = gameState?.boatdatajson ?? [];
+  const robberHex = gameState?.robberhexjson ?? -1;
+  const vertexData = gameState?.nodegraphjson ?? [];
+  const resourceData = [0, 0, 0, 0, 0];
+
+  const playerNumber        = -1;
+  const playerTurn          = -1;
+  const isBuildingRoad      = false;
+  const roadSelectorVisible = false;
+
+
+  console.log("vertexData:", JSON.stringify(vertexData));
+  console.log("gameState keys:", gameState ? Object.keys(gameState) : "NO GAMESTATE");
+
+  // OLD HARDCODED DATA, KEEP FOR TESTING
+  /*
   const resourceData = [2, 3, 0, 1, 4]; // Wheat, Brick, Ore, Wood, Sheep
   let hexData = [];
   let vertexData = [];
@@ -166,9 +186,11 @@ export default function MainGameScreen({route}) {
         break;
       default:
         throw new error("invalid map size");
+       
 
   }
 
+  */ 
   return (
     <View style={styles.container}>
       <View style={styles.gridContainer}>
