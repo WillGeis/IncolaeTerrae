@@ -3,6 +3,8 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import HostOptions from "./HostOptions";
 import { usePlayer } from "./PlayerContext";
 
+const API_BASE = "http://localhost:5082";
+
 export default function LobbyScreen({ navigation }) {
   const { setUsername, setGuid, setIsHost } = usePlayer();
   const [hostOptionsVisible, setHostOptionsVisible] = useState(false);
@@ -21,10 +23,16 @@ export default function LobbyScreen({ navigation }) {
     if (hostRequestedRef.current) return;
     hostRequestedRef.current = true;
 
+    if (!hostConfig.HostUsername || hostConfig.HostUsername.trim() === "") {
+      Alert.alert("Missing username", "enter a username before hosting!");
+      hostRequestedRef.current = false;
+      return;
+    }
+
     setHostOptionsVisible(false);
 
     try {
-      const res = await fetch("http://localhost:5082/host", {
+      const res = await fetch(`${API_BASE}/host`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(hostConfig),
@@ -36,6 +44,7 @@ export default function LobbyScreen({ navigation }) {
       setIsHost(true);
       setUsername(hostConfig.HostUsername);
 
+      hostRequestedRef.current = false;
       navigation.navigate("HostWaiting", { hostConfig });
     } catch (err) {
       console.error("Failed to register host:", err);

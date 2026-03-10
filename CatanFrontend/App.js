@@ -17,7 +17,7 @@ import { PlayerProvider, usePlayer } from "./PlayerContext";
 
 const Stack = createNativeStackNavigator();
 
-/* //this the main app, I comment/uncomment it to test the game
+// /* //this the main app, I comment/uncomment it to test the game
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
@@ -117,8 +117,9 @@ const styles = StyleSheet.create({
   color: "#fff", 
 },
 });
-*/
+// */
 
+/*
 export default function App() {
   return (
     <View style={styles.container}>
@@ -139,3 +140,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+*/

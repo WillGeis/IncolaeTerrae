@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { usePlayer } from "./PlayerContext";
 
+const API_BASE = "http://localhost:5082";
+
 export default function PlayerWaitingScreen() {
   const { guid, isHost } = usePlayer();
   const [serverIP, setServerIP] = useState("Loading...............");
@@ -15,23 +17,30 @@ export default function PlayerWaitingScreen() {
     const fetchServerIP = async () => {
       console.log("[DEBUG] Fetching server-info...");
       try {
-        const res = await fetch("http://localhost:5082/server-info");
+        const res = await fetch(`${API_BASE}/server-info`);
         const data = await res.json();
 
         console.log("[DEBUG] /server_info response:", data);
 
-        if (isMounted && data.ready && data.serverIP) {
-          setServerIP(data.serverIP);
+        if (isMounted) {
+          if (data.ready && data.serverIP) {
+            setServerIP(data.serverIP);
+          } else {
+            setTimeout(fetchServerIP, 2000); // 2 second polling
+          }
         }
       } catch (err) {
         console.error("[ERROR] /server_info failed:", err);
-        if (isMounted) setServerIP("Error!");
+        if (isMounted) {
+          setServerIP("[ERROR] retrying server connection...");
+          setTimeout(fetchServerIP, 2000);
+        }
       }
     };
 
     const fetchPlayers = async () => {
       try {
-        const res = await fetch("http://localhost:5082/players");
+        const res = await fetch(`${API_BASE}/players`);
         const data = await res.json();
         if (isMounted) setPlayers(data);
       } catch (err) {
@@ -42,7 +51,7 @@ export default function PlayerWaitingScreen() {
     fetchServerIP();
     fetchPlayers();
 
-    const interval = setInterval(fetchPlayers, 1000);
+    const interval = setInterval(fetchPlayers, 5000); // 5 second polling
 
     return () => {
       isMounted = false;
@@ -65,9 +74,10 @@ export default function PlayerWaitingScreen() {
     console.log("[DEBUG] Host GUID:", guid);
 
     try {
-      const res = await fetch("http://localhost:5082/startGame", {
+      const res = await fetch(`${API_BASE}/startGame`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ }),
       });
 
       console.log("[DEBUG] startGame HTTP status:", res.status);
@@ -102,13 +112,7 @@ export default function PlayerWaitingScreen() {
       <Text style={styles.status}>Waiting for more players...</Text>
 
       {isHost && (
-        <Pressable
-          onPress={handleStartGame}
-          style={[
-            styles.startButton,
-            { backgroundColor: "lime" },
-          ]}
-        >
+        <Pressable onPress={handleStartGame} style={styles.startButton}>
           <Text style={styles.buttonText}>Go</Text>
         </Pressable>
       )}
@@ -132,6 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 30,
     alignSelf: "center",
+    backgroundColor: "lime",
   },
   buttonText: { color: "#000", fontSize: 40, fontWeight: "bold", fontFamily: "Jersey10" },
   ipBox: {

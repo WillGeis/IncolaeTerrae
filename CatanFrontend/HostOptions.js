@@ -6,8 +6,28 @@ import { usePlayer } from "./PlayerContext";
 export default function HostOptions({ visible, onClose, onStartGame }) {
   const [mapSize, setMapSize] = useState(5);
   const [victoryPoints, setVictoryPoints] = useState(10);
-
   const { username } = usePlayer();
+
+  console.log("[DEBUG] HostOptions render | visible =", visible, "| username =", username);
+
+  const handleGo = () => {
+    console.log("[DEBUG] Go button pressed in HostOptions!");
+    console.log("[DEBUG] onStartGame type:", typeof onStartGame);
+    console.log("[DEBUG] username:", username, "| mapSize:", mapSize, "| victoryPoints:", victoryPoints);
+
+    if (typeof onStartGame !== "function") {
+      console.error("[ERROR] onStartGame is not a function!");
+      return;
+    }
+
+    onStartGame({
+      HostUsername: username,
+      mapSize: Number(mapSize),
+      mapType: 1,
+      winCondition: 1,
+      winPoints: Number(victoryPoints),
+    });
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -30,9 +50,7 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
             ))}
           </View>
 
-          <Text style={styles.label}>
-            Victory Points Needed: {victoryPoints}
-          </Text>
+          <Text style={styles.label}>Victory Points Needed: {victoryPoints}</Text>
           <Slider
             minimumValue={5}
             maximumValue={30}
@@ -44,18 +62,7 @@ export default function HostOptions({ visible, onClose, onStartGame }) {
             style={{ width: 250 }}
           />
 
-          <Pressable
-            style={styles.goButton}
-            onPress={() =>
-              onStartGame({
-                HostUsername: username,
-                mapSize: Number(mapSize),
-                mapType: 1,
-                winCondition: 1,
-                winPoints: Number(victoryPoints),
-              })
-            }
-          >
+          <Pressable style={styles.goButton} onPress={handleGo}>
             <Text style={styles.buttonText}>Go</Text>
           </Pressable>
 

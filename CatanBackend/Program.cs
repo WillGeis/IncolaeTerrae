@@ -253,6 +253,11 @@ app.MapGet("/players", () =>
     return Results.Json(players);
 });
 
+app.MapGet("/gamestate", () =>
+{
+    return GameState.GameStatePackager();
+});
+
 /*
 app.MapPost("/start", (Guid guid) =>
 {
@@ -302,11 +307,28 @@ Resources are:
 
 public static class GameState
 {
+
+    /*
+    RNG to run the game
+    ==================================================================================================================================================================================================================================================================
+    Resources are:
+     - rng: random number generator, note for the future, if you are generating new randoms in loops, it breaks the runtime
+    ==================================================================================================================================================================================================================================================================
+    */
+    private static Random rng = new Random();
+
+    /*
+    Player login and other player facilitators
+    ==================================================================================================================================================================================================================================================================
+    Resources are:
+     - Players: list of player objects
+     - NextPlayerId: this is just a counter to assign ids
+     - HostGUID: saves GUID for host so host can use extra permissions
+    ==================================================================================================================================================================================================================================================================
+    */
     private static List<Player> Players = new List<Player>();
     private static int NextPlayerId = 0;
     public static Guid HostGUID { get; private set; }
-    public static bool GameStarted { get; private set; } = false;
-
 
     public static bool EntryPoint()
     {
@@ -317,13 +339,8 @@ public static class GameState
 
         PlayerLoginLoop();
 
-        Gameloop(Players.Count, Globals.GameVars.MapType, Globals.GameVars.MapSize, Globals.GameVars.WinCondition, Globals.GameVars.WinPoints, false);
-
         return true;
     }
-
-    public static void StartGame() => GameStarted = true;
-
     public static void PlayerLoginLoop()
     {
         Console.WriteLine("[GAMESTATE] Waiting for players...");
@@ -364,26 +381,74 @@ public static class GameState
     {
         return Players;
     }
-    
-    /*
-    Global resources go here so that they do not break runtime
-    ==================================================================================================================================================================================================================================================================
-    Resources are:
-     - rng: random number generator, note for the future, if you are generating new randoms in loops, it breaks the runtime
-    ==================================================================================================================================================================================================================================================================
-    */
-    private static Random rng = new Random();
-
-    private static int MapSizeGlobal = -1;
 
     /*
     This Code Chunk runs the main gamestate.
     ==================================================================================================================================================================================================================================================================
     Constructors are:
-     - 
+     - GameStarted: bool that is kinda the be all end all.
     ==================================================================================================================================================================================================================================================================
     */
+
+
+    /*
+    Makes map, checks these:
     
+    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
+    public static Dictionary<int, string> ResourceDirectory;
+    public static Dictionary<(int x, double y), Node> NodeGraph;
+    public static Dictionary<double, int> NodeLayout;
+
+    Then sets players all to 0 and empty.
+    */
+    public static bool GameStarted { get; private set; } = false;
+
+    public static bool StartGame() //=> GameStarted = true;
+    {
+        MapSizeGlobal = Globals.GameVars.MapSize;
+        GameStartupPhase(Players.Count, Globals.GameVars.MapType, Globals.GameVars.MapSize);
+        
+        if (ResourceMap == null)
+        {
+            Console.WriteLine("[ERROR] Cannot start game: ResourceMap is not initialized!");
+            return false;
+        }
+        if (ResourceDirectory == null)
+        {
+            Console.WriteLine("[ERROR] Cannot start game: ResourceDirectory is not initialized!");
+            return false;
+        }
+        if (NodeGraph == null)
+        {
+            Console.WriteLine("[ERROR] Cannot start game: NodeGraph is not initialized!");
+            return false;
+        }
+        if (NodeLayout == null)
+        {
+            Console.WriteLine("[WARN] NodeLayout is null!");
+        }
+
+        foreach (var player in Players)
+        {
+            player.Wheat = 0;
+            player.Bricks = 0;
+            player.Ore = 0;
+            player.Wood = 0;
+            player.Sheep = 0;
+            player.Settlements = new List<(int x, double y)>();
+            player.Cities = new List<(int x, double y)>();
+            player.Roads = new List<(int x1, int x2, double y1, double y2)>();
+            player.DevelopmentCards = new List<int>();
+            player.KnightsPlayed = 0;
+            player.HasLargestArmy = false;
+            player.HasLongestRoad = false;
+            player.ExtraPoints = 0;
+        }
+
+        return true;
+    }
+    
+    /*
     public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
     {
         MapSizeGlobal = mapSize;
@@ -407,6 +472,7 @@ public static class GameState
         }
         return false;
     }
+    */
 
     /*
     This Code Chunk contains the logic (unbundled methods, bundled for api).
@@ -731,8 +797,10 @@ public static class GameState
 
     public static bool GameStartupPhase(int numPlayers, int mapType, int mapSize)
     {
+        ResourceDirectoryStarter();
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
+        Console.WriteLine("[GAMESTATE] Game Startup Phase completed successfully");
         return true;
     }
 
@@ -752,7 +820,7 @@ public static class GameState
                 }
                 else
                 {
-                    Console.WriteLine("Error: Invalid settlement coordinates during startup phase");
+                    Console.WriteLine("[Error] Invalid settlement coordinates during startup phase");
                 }
             }
             else
@@ -969,6 +1037,8 @@ public static class GameState
     public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
     public static Dictionary<int, string> ResourceDirectory;
 
+    private static int MapSizeGlobal = -1;
+
     /*
     Initializes the ResourceDirectory with resource IDs
     */
@@ -1114,7 +1184,6 @@ public static class GameState
 
     public static Dictionary<double, int> NodeLayout;
 
-
     /*
     { 0, 3 to 1 },
     { 1, "Wheat" },
@@ -1166,6 +1235,8 @@ public static class GameState
                 AddNode(j, i);
             }
         }
+
+        NodeLayout = nodeLayout;
 
         EdgeConnectorInitializer(yMidpoint);
 
