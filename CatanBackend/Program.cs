@@ -377,13 +377,12 @@ public static class GameState
     private static int MapSizeGlobal = -1;
 
     /*
-    This Code Chunk runs the main gamestate and facilitator methods.
+    This Code Chunk runs the main gamestate.
     ==================================================================================================================================================================================================================================================================
     Constructors are:
      - 
     ==================================================================================================================================================================================================================================================================
     */
-    
     
     public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
     {
@@ -409,6 +408,13 @@ public static class GameState
         return false;
     }
 
+    /*
+    This Code Chunk contains the logic (unbundled methods, bundled for api).
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - None, no constructors.
+    ==================================================================================================================================================================================================================================================================
+    */
     public static IResult GameStatePackager()
     {
         /*
@@ -416,59 +422,300 @@ public static class GameState
 
         ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
         */
-
-        int hexDataLength = ((MapSizeGlobal - 1) / 2) * ((MapSizeGlobal - 1) / 2) + 6 * ((MapSizeGlobal - 1) / 2) + 3;
-        int[] resourceMapFrontendReadable = new int[hexDataLength];
-        int[] resourceRollsFrontendReadable = new int[hexDataLength];
-        int robberX = -1;
-        int robberY = -1;
-        
-        int midpoint = (MapSizeGlobal / 2);
-        int xSize = 3;
-        
-        int currentHex = 0;
-        for (int i = 0; i < MapSizeGlobal; i++)
+        try
         {
-            for (int j = 0; i < xSize; j++)
+            var (resourceMap, resourceRolls) = PackageResourceMap();
+            var nodeGraph = PackageNodeGraph();
+            var robberHex = PackageRobberHex();
+            var boatData = PackageBoatData();
+            var edgeData = PackageEdgeData();
+            var winCondition = PackageWinCondition();
+
+            return Results.Json(new
             {
-                resourceMapFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceTypeID;
-                resourceRollsFrontendReadable[currentHex] = ResourceMap[(i, j)][1].resourceRoll;
-
-                if (ResourceMap[(i, j)][2].hasRobber == true) {robberX = j; robberY = i;}
-
-                if (i < midpoint)
-                {
-                    xSize++;
-                }
-                else
-                {
-                    xSize--;
-                }
-
-                // This is a code block for saftey because I cannot do math...
-                if (xSize < 3)
-                {
-                    i = 999;
-                }
-                currentHex++;
-            }
+                resourcemapjson = resourceMap,
+                resourcerollsjson = resourceRolls,
+                robberhexjson = robberHex,
+                nodegraphjson = nodeGraph,
+                boatdatajson = boatData,
+                edgedatajson = edgeData,
+                winConditionjson = winCondition,
+            });
         }
-
-        /*
-        Yeah this is the node part, I am not looking forward to it
-        */
-        
-
-        return Results.Json(new
+        catch (InvalidOperationException ex)
         {
-            resourcemapjson = resourceMapFrontendReadable,
-            resourcerollsjson = resourceRollsFrontendReadable,
-            robberxjson = robberX,
-            robberyjson = robberY,
-
-        });
+            return Results.Json(new { error = ex.Message });
+        }
     }
 
+    /*
+    example data from filler frontend:
+
+      hexData = [
+        1, 2, 3,
+        4, 5, 6, 1,
+        2, 3, 4, 5, 6,
+        1, 2, 3, 4,
+        5, 6, 1
+      ];
+      
+      hexRollData = [
+        5, 2, 6,
+        3, 8, 10, 9,
+        12, 11, 4, 8, 10,
+        9, 4, 5, 6,
+        3, 11, 2
+      ];
+
+    1D array for each type of data, never should be seprable so thats why it is together
+    */
+    private static (int[] resourceMap, int[] resourceRolls) PackageResourceMap()
+    {
+        if (ResourceMap == null)
+            throw new InvalidOperationException("ResourceMap is not initialized!");
+
+        int hexDataLength = ((MapSizeGlobal - 1) / 2) * ((MapSizeGlobal - 1) / 2) + 6 * ((MapSizeGlobal - 1) / 2) + 3;
+        int midpoint = MapSizeGlobal / 2;
+        int xSize = 3;
+
+        int[] resourceMapFrontendReadable = new int[hexDataLength];
+        int[] resourceRollsFrontendReadable = new int[hexDataLength];
+
+        int currentHex = 0;
+
+        for (int i = 0; i < MapSizeGlobal; i++)
+        {
+            for (int j = 0; j < xSize; j++)
+            {
+                resourceMapFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceTypeID;
+                resourceRollsFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceRoll;
+
+                currentHex++;
+            }
+
+            if (i < midpoint) xSize++;
+            else xSize--;
+
+            if (xSize < 3) break;
+        }
+
+        return (resourceMapFrontendReadable, resourceRollsFrontendReadable);
+    }
+
+    /*
+    Starting at the top left hex as 1, this gives the hex that the robber is on
+    */
+    private static int PackageRobberHex()
+    {
+        int xSize = 3;
+        int midpoint = MapSizeGlobal / 2;
+        for (int i = 0; i < MapSizeGlobal; i++)
+        {
+            for (int j = 0; j < xSize; j++)
+            {
+                if (ResourceMap[(i, j)][0].hasRobber) { return i + 1; }
+            }
+
+            if (i < midpoint) xSize++;
+            else xSize--;
+
+            if (xSize < 3) break;
+        }
+
+        return -1;
+    }
+
+    /*
+    example data from frontend:
+
+      vertexData = [
+        [ -1, -1, -1], // 3
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1] // 3
+      ];
+
+    2D array, nodes are numbered as -1 being a null tri, and subsequent numbers being player IDS
+    */
+    private static object PackageNodeGraph()
+    {
+        if (NodeGraph == null)
+            return new { error = "NodeGraph is not initialized" };
+
+        var result = new Dictionary<string, object>();
+
+        foreach (var entry in NodeGraph)
+        {
+            var key = $"{entry.Key.x},{entry.Key.y}";
+
+            result[key] = new
+            {
+                SettlementPlayerID = entry.Value.SettlementPlayerID,
+                Edges = entry.Value.Edges.Select(e => new
+                {
+                    RoadPlayerID = e.RoadPlayerID,
+                    ConnectedNode = new { x = e.ConnectedNode.x, y = e.ConnectedNode.y }
+                }).ToList()
+            };
+        }
+
+        return result;
+    }
+
+    /*
+    example data from frontend:
+
+      boatData = [
+        [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
+         [ 2, 0, 3, 1, 1], // boat 2 Wheat //
+         [ 3, 2, 4, 3, 2], // boat 3 Brick //
+         [ 5, 5, 5, 6, 3], // boat 4 Ore //
+         [ 4, 8, 3, 9, 4], // boat 5 Wood
+         [ 2, 10, 1, 11, 5], // boat 6 Sheep //
+         [ 0, 10, 0, 11, 0], // boat 7 3 to 1 //
+         [ 0, 7, 0, 8, 1], // boat 8 Wheat //
+         [ 0, 3, 0, 4, 2], // boat 9 Brick //
+       ];
+
+    2D array that it gives the coordinates (x1, y1, x2, y2, resourceTradeType) for each boat, x and y will be the nodes its tied to
+    */
+    private static int[][] PackageBoatData()
+    {
+        if (BoatConnections == null)
+            throw new InvalidOperationException("Boat Connections is not initialize!");
+
+        if (PerimeterNodes == null)
+            throw new InvalidOperationException("PerimeterNodes is not initialized!");
+
+        int totalBoats = BoatConnections.Count / 2;
+        int spacing = PerimeterNodes.Count / totalBoats;
+
+        int[][] boatData = new int[totalBoats][];
+
+        for (int i = 0; i < totalBoats; i++)
+        {
+            int node1Key = i * spacing;
+            int node2Key = i * spacing + 1;
+
+            var (x1, y1) = PerimeterNodes[node1Key];
+            var (x2, y2) = PerimeterNodes[node2Key];
+
+            int resourceType = BoatConnections[(x1, y1)];
+
+            boatData[i] = new int[] { x1, (int)(y1 * 2), x2, (int)(y2 * 2), resourceType };
+        }
+
+        return boatData;
+    }
+
+    /*
+    beleive me, I would not have coded it this way if I was better at React Native:
+      edgeData= [ 
+        [3, -1, -1, -1, -1, -1], // hex 1 data
+        [-1, -1, -1, -1, -1, -1], // hex 2 data
+        [-1, -1, -1, -1, -1, -1], // hex 3 data
+        [-1, -1, -1, -1, -1, -1], // hex 4 data
+        [-1, -1, -1, -1, -1, -1], // hex 5 data
+        [-1, -1, -1, -1, -1, -1], // hex 6 data
+        [-1, -1, -1, -1, -1, -1], // hex 7 data
+        [-1, -1, -1, -1, -1, -1], // hex 8 data
+        [-1, -1, -1, -1, 3, -1], // hex 9 data
+        [-1, -1, -1, -1, -1, -1], // hex 10 data
+        [-1, -1, -1, -1, -1, -1], // hex 11 data
+        [-1, -1, -1, -1, -1, -1], // hex 12 data
+        [-1, -1, -1, 3, -1, -1], // hex 13 data
+        [-1, -1, -1, -1, -1, -1], // hex 14 data
+        [-1, -1, -1, -1, -1, -1], // hex 15 data
+        [-1, -1, -1, -1, -1, -1], // hex 16 data
+        [-1, -1, -1, -1, -1, -1], // hex 17 data
+        [-1, -1, -1, -1, -1, -1], // hex 18 data
+        [-1, -1, -1, -1, -1, -1], // hex 19 data
+      ];
+
+    2D array, this is pretty discusting.
+    */
+    private static int[][] PackageEdgeData()
+    {
+        if (NodeGraph == null)
+            throw new InvalidOperationException("NodeGraph is not initialized!");
+
+        int hexDataLength = ((MapSizeGlobal - 1) / 2) * ((MapSizeGlobal - 1) / 2) + 6 * ((MapSizeGlobal - 1) / 2) + 3;
+        int[][] edgeData = new int[hexDataLength][];
+
+        for (int i = 0; i < hexDataLength; i++)
+            edgeData[i] = new int[] { -1, -1, -1, -1, -1, -1 }; // filler
+
+        int xSize = 3;
+        int midpoint = MapSizeGlobal / 2;
+        int currentHex = 0;
+
+        for (int i = 0; i < MapSizeGlobal; i++)
+        {
+            for (int j = 0; j < xSize; j++)
+            {
+                double[] hexY = { i + 0.5, i + 0.5, i,     i,     i + 1, i + 1  };
+                int[]    hexX = { j,       j + 1,   j,     j + 1, j,     j + 1  };
+
+                for (int edgeIdx = 0; edgeIdx < 6; edgeIdx++)
+                {
+                    var nodeKey = (hexX[edgeIdx], (double)hexY[edgeIdx]);
+                    if (NodeGraph.ContainsKey(nodeKey))
+                    {
+                        var node = NodeGraph[nodeKey];
+                        if (node.Edges.Count > 0)
+                        {
+                            int roadPlayerID = node.Edges
+                                .Where(e => e.RoadPlayerID != -1)
+                                .Select(e => e.RoadPlayerID)
+                                .FirstOrDefault(-1);
+
+                            edgeData[currentHex][edgeIdx] = roadPlayerID;
+                        }
+                    }
+                }
+
+                currentHex++;
+            }
+
+            if (i < midpoint) xSize++;
+            else xSize--;
+
+            if (xSize < 3) break;
+        }
+
+        return edgeData;
+    }
+
+    /*
+    this would pop up an end screen when I code it
+    */
+    private static int PackageWinCondition()
+    {
+        if (CheckWinCondition(Players, Globals.GameVars.WinCondition, Globals.GameVars.WinPoints) == true)
+        {
+            return Players.Where(p => p.Settlements.Count + (2 * p.Cities.Count) + (p.HasLargestArmy ? 2 : 0) + (p.HasLongestRoad ? 2 : 0) >= Globals.GameVars.WinPoints)
+                .Select(p => p.PlayerID)
+                .FirstOrDefault(-1);
+        }
+        
+        return -1;
+    }
+
+    /*
+    Helpers
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - I need to write a header
+    ==================================================================================================================================================================================================================================================================
+    */
     public static bool CheckWinCondition(List<Player> players, int winCondition, int winPoints)
     {
         foreach (var player in players)
