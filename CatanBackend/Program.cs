@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Microsoft.OpenApi.Services;
 
 
 /*
@@ -866,6 +867,20 @@ public static class GameState
 
     public static Dictionary<double, int> NodeLayout;
 
+
+    /*
+    { 0, 3 to 1 },
+    { 1, "Wheat" },
+    { 2, "Brick" },
+    { 3, "Ore" },
+    { 4, "Wood" },
+    { 5, "Sheep" },
+    { 6, "Desert" }
+    */
+    public static Dictionary<(int x, double y), int> BoatConnections; // dont forget hoes too
+
+    public static Dictionary<int, (int x, double y)> PerimeterNodes;  
+
     public static void GenerateNodeGraph(int MapType, int MapSize)
     {
         if (MapType < 0 || MapSize < 4) {
@@ -906,6 +921,8 @@ public static class GameState
         }
 
         EdgeConnectorInitializer(yMidpoint);
+
+        InitializeBoatConnections(MapSize);
     }
 
     private static void EdgeConnectorInitializer (double Midpoint)
@@ -998,6 +1015,68 @@ public static class GameState
                 ConnectedNode = from,
                 RoadPlayerID = -1
             });
+        }
+    }
+
+    /*
+    { 0, 3 to 1 },
+    { 1, "Wheat" },
+    { 2, "Brick" },
+    { 3, "Ore" },
+    { 4, "Wood" },
+    { 5, "Sheep" },
+    { 6, "Desert" }
+
+    public static Dictionary<(int x, double y), int> BoatConnections; // dont forget hoes too
+    public static Dictionary<double, int> NodeLayout;
+    */
+    public static void InitializeBoatConnections(int MapSize)
+    {
+        BoatConnections = new Dictionary<(int x, double y), int>();
+
+        int totalBoats = (MapSize * 2) - 1;
+        int numPerimiterNodes = MapSize * 4 + 10;
+
+        int spacing = numPerimiterNodes / totalBoats;
+
+        PerimeterNodes = new Dictionary<int, (int x, double y)>(numPerimiterNodes);
+
+        // Top row of 7 nodes
+        PerimeterNodes[0] = (0, .5); PerimeterNodes[1] = (0, 0); PerimeterNodes[2] = (1, .5); PerimeterNodes[3] = (1, 0);
+        PerimeterNodes[4] = (2, .5);PerimeterNodes[5] = (2, 0); PerimeterNodes[6] = (3, .5); 
+
+        double bottomY = MapSize + .5;
+        int h = numPerimiterNodes / 2;
+        // Bottom row of 7 nodes
+        PerimeterNodes[h] = (3, bottomY - .5); PerimeterNodes[h + 1] = (2, bottomY); PerimeterNodes[h + 2] = (2, bottomY - .5); PerimeterNodes[h + 3] = (1, bottomY);
+        PerimeterNodes[h+4] = (1, bottomY - .5); PerimeterNodes[h + 5] = (0, bottomY); PerimeterNodes[h + 6] = (0, bottomY - .5);
+
+        int currentKeyRight = 7;
+        int currentKeyLeft = h + 7;
+        for (double yrow = 1; yrow < MapSize; yrow = yrow + .5)
+        {
+            PerimeterNodes[currentKeyRight] = (NodeLayout[(int)yrow], yrow);
+            PerimeterNodes[currentKeyLeft] = (NodeLayout[(int)yrow], 0);
+            currentKeyRight++;
+            currentKeyLeft++;
+        }
+
+        int connectionX1;
+        double connectionY1;
+        int connectionX2;
+        double connectionY2;
+
+        for (int i = 0; i < totalBoats; i++)
+        {
+            int specificResource =rng.Next(0, 7);
+            
+            connectionX1 = PerimeterNodes[i * spacing].x;
+            connectionY1 = PerimeterNodes[i * spacing].y;
+            connectionX2 = PerimeterNodes[i * spacing + 1].x;
+            connectionY2 = PerimeterNodes[i * spacing + 1].y;
+
+            BoatConnections[(connectionX1, connectionY1)] = specificResource; // starting Node
+            BoatConnections[(connectionX2, connectionY2)] = specificResource; // ending Node
         }
     }
 
