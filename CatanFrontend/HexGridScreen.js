@@ -10,11 +10,6 @@ import sprite6 from "./assets/hexSprites/sprite6.png";
 const spriteMap = [sprite1, sprite2, sprite3, sprite4, sprite5, sprite6];
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
-function getEdgeColor(value) {
-  if (value === -1) return "transparent";
-  return playerColors[value];
-}
-
 const EDGE_POSITIONS = [
   { x: 0,    y: 0.5   }, // 0 - left
   { x: 1,    y: 0.5   }, // 1 - right
@@ -83,7 +78,7 @@ function buildHexIndexMap(rows) {
   return map;
 }
 
-export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeData, roadSelectorVisible, HEX_WIDTH, HEX_HEIGHT, MAP_SIZE, ROAD_WIDTH }) {
+export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeData, roadSelectorVisible, HEX_WIDTH, HEX_HEIGHT, MAP_SIZE, ROAD_WIDTH, playerTurn, playerNumber, isBuildingRoad }) {
   if (!hexData?.length) return null;
   if (!edgeData?.length) return null;
 
@@ -94,6 +89,11 @@ export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeDat
 
   const gridWidth = maxRow * HEX_WIDTH;
   const gridHeight = rows.length * HEX_HEIGHT * 0.75;
+
+  function getEdgeColor(value) {
+    if (value === -1) return "transparent";
+    return playerColors[value];
+  }
 
   function getNeighborHexIndex(rowIndex, colIndex, edgeIdx) {
     const { rowOff, colOff, neighborEdge } = EDGE_NEIGHBORS[edgeIdx];
@@ -191,7 +191,7 @@ export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeDat
                   </View>
 
                   {/* Road selector circles — outside clip */}
-                  {roadSelectorVisible && EDGE_POSITIONS.map((pos, edgeIdx) => {
+                  {isBuildingRoad && playerTurn === playerNumber && EDGE_POSITIONS.map((pos, edgeIdx) => {
                     // Don't show if road already placed here
                     if (edges[edgeIdx] !== -1) return null;
 

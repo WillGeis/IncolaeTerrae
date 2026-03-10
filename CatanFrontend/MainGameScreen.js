@@ -21,7 +21,11 @@ export default function MainGameScreen({route}) {
   let vertexData = [];
   let edgeData = []; 
   let hexRollData = []; 
+  let boatData = [];
   let robberHex = -1;
+  let playerNumber = -1;
+  let playerTurn = 3; // change this for check (-1 means game startup)
+  let isBuildingRoad = true;
   let roadSelectorVisible = true; // set this to false later
 
   switch (MAP_SIZE) {
@@ -59,8 +63,20 @@ export default function MainGameScreen({route}) {
         [ -1, -1, -1] // 3
       ];
 
+      boatData = [
+        [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
+        [ 1, 0, 1, 2, 1], // boat 2 Wheat //
+        [ 2, 2, 3, 3, 2], // boat 3 Brick //
+        [ 5, 5, 5, 6, 3], // boat 4 Ore //
+        [ 4, 8, 3, 9, 4], // boat 5 Wood
+        [ 2, 10, 1, 11, 5], // boat 6 Sheep //
+        [ 0, 10, 0, 11, 0], // boat 7 3 to 1 //
+        [ 0, 7, 0, 8, 1], // boat 8 Wheat //
+        [ 0, 3, 0, 4, 2], // boat 9 Brick //
+      ];
+
       edgeData= [ 
-        [1, -1, -1, -1, -1, -1], // hex 1 data
+        [3, -1, -1, -1, -1, -1], // hex 1 data
         [-1, -1, -1, -1, -1, -1], // hex 2 data
         [-1, -1, -1, -1, -1, -1], // hex 3 data
         [-1, -1, -1, -1, -1, -1], // hex 4 data
@@ -68,11 +84,11 @@ export default function MainGameScreen({route}) {
         [-1, -1, -1, -1, -1, -1], // hex 6 data
         [-1, -1, -1, -1, -1, -1], // hex 7 data
         [-1, -1, -1, -1, -1, -1], // hex 8 data
-        [-1, -1, -1, -1, 1, -1], // hex 9 data
+        [-1, -1, -1, -1, 3, -1], // hex 9 data
         [-1, -1, -1, -1, -1, -1], // hex 10 data
         [-1, -1, -1, -1, -1, -1], // hex 11 data
         [-1, -1, -1, -1, -1, -1], // hex 12 data
-        [-1, -1, -1, 1, -1, -1], // hex 13 data
+        [-1, -1, -1, 3, -1, -1], // hex 13 data
         [-1, -1, -1, -1, -1, -1], // hex 14 data
         [-1, -1, -1, -1, -1, -1], // hex 15 data
         [-1, -1, -1, -1, -1, -1], // hex 16 data
@@ -167,6 +183,9 @@ export default function MainGameScreen({route}) {
             HEX_HEIGHT={HEX_HEIGHT}
             MAP_SIZE={MAP_SIZE}
             ROAD_WIDTH={ROAD_WIDTH}
+            playerTurn={playerTurn}
+            playerNumber={playerNumber}
+            isBuildingRoad={isBuildingRoad}
             />
         <VertexLayer
             vertexData={vertexData}

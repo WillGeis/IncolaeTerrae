@@ -1,5 +1,6 @@
+
 import React from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Font from "expo-font";
@@ -16,6 +17,7 @@ import { PlayerProvider, usePlayer } from "./PlayerContext";
 
 const Stack = createNativeStackNavigator();
 
+/* //this the main app, I comment/uncomment it to test the game
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
@@ -114,4 +116,26 @@ const styles = StyleSheet.create({
   fontSize: 24,
   color: "#fff", 
 },
+});
+*/
+
+export default function App() {
+  return (
+    <View style={styles.container}>
+      <MainGameScreen
+        route={{
+          params: { MAP_SIZE: 5 },
+        }}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#090d18",
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });
