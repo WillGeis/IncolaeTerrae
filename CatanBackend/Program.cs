@@ -638,7 +638,7 @@ public static class GameState
     example data from frontend:
 
       boatData = [
-        [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
+         [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
          [ 2, 0, 3, 1, 1], // boat 2 Wheat //
          [ 3, 2, 4, 3, 2], // boat 3 Brick //
          [ 5, 5, 5, 6, 3], // boat 4 Ore //
@@ -648,6 +648,16 @@ public static class GameState
          [ 0, 7, 0, 8, 1], // boat 8 Wheat //
          [ 0, 3, 0, 4, 2], // boat 9 Brick //
        ];
+
+       What frontend recieved:
+        0: [0, 1, 0, 0, 1] // blue //
+        1: [1, 0, 2, 1, 0] // gray //
+        2: [3, 1, 4, 2, 4] // green
+        3: [5, 4, 5, 5, 0] // gray
+        4: [6, 7, 5, 8, 0] // gray
+        5: [3, 10, 2, 11, 4] // green //
+        6: [1, 11, 1, 10, 5] // white //
+        7: [0, 10, 4, 0, 0] // gray
 
     2D array that it gives the coordinates (x1, y1, x2, y2, resourceTradeType) for each boat, x and y will be the nodes its tied to
     */
@@ -1198,7 +1208,7 @@ public static class GameState
     public static void GenerateNodeGraph(int MapType, int MapSize)
     {
         if (MapType < 0 || MapSize < 4) {
-            Console.WriteLine("Error: Invalid MapType or MapSize");
+            Console.WriteLine("[Error] Invalid MapType or MapSize");
             return;
         }
 
@@ -1349,10 +1359,8 @@ public static class GameState
     {
         BoatConnections = new Dictionary<(int x, double y), int>();
 
-        int totalBoats = (MapSize * 2) - 1;
+        int totalBoats = (MapSize * 2);
         int numPerimiterNodes = MapSize * 4 + 10;
-
-        int spacing = numPerimiterNodes / totalBoats;
 
         PerimeterNodes = new Dictionary<int, (int x, double y)>(numPerimiterNodes);
 
@@ -1368,18 +1376,30 @@ public static class GameState
 
         int currentKeyRight = 7;
         int currentKeyLeft = h + 7;
+        double leftY = MapSize - .5;
         for (double yrow = 1; yrow < MapSize; yrow = yrow + .5)
         {
-            PerimeterNodes[currentKeyRight] = (NodeLayout[(int)yrow], yrow);
-            PerimeterNodes[currentKeyLeft] = (NodeLayout[(int)yrow], 0);
+            PerimeterNodes[currentKeyRight] = (NodeLayout[yrow] - 1, yrow);
+            PerimeterNodes[currentKeyLeft] = (0, leftY);
+            leftY -= .5;
             currentKeyRight++;
             currentKeyLeft++;
         }
+
+        /*
+        Console.WriteLine("[DEBUG] Perimeter Nodes:");
+        foreach (var kvp in PerimeterNodes.OrderBy(k => k.Key))
+        {
+            Console.WriteLine($"  {kvp.Key}: ({kvp.Value.x}, {kvp.Value.y})");
+        }
+        // */
 
         int connectionX1;
         double connectionY1;
         int connectionX2;
         double connectionY2;
+
+        int spacing = numPerimiterNodes / totalBoats;
 
         for (int i = 0; i < totalBoats; i++)
         {
