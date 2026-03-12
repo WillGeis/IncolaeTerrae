@@ -496,6 +496,7 @@ public static class GameState
             var boatData = PackageBoatData();
             var edgeData = PackageEdgeData();
             var winCondition = PackageWinCondition();
+            var mapSize = MapSizeGlobal;
 
             return Results.Json(new
             {
@@ -506,6 +507,7 @@ public static class GameState
                 boatdatajson = boatData,
                 edgedatajson = edgeData,
                 winConditionjson = winCondition,
+                mapSizejson = mapSize,
             });
         }
         catch (InvalidOperationException ex)

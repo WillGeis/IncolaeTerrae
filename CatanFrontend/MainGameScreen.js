@@ -9,13 +9,14 @@ const HEX_SIZE = 60 * SCALAR;
 const HEX_WIDTH = HEX_SIZE;
 const HEX_HEIGHT = HEX_SIZE * 1.1547;
 const ROAD_WIDTH = 14;
-const MAP_SIZE = 5;
 
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
 export default function MainGameScreen({route}) {
-  const MAP_SIZE = route.params?.MAP_SIZE || 5;
   const gameState = route.params?.gameState;
+
+  const MAP_SIZE = Number(gameState?.mapSizejson);
+  if (!MAP_SIZE) throw new Error("[ERROR] map size not received from server");
 
   const hexData = gameState?.resourcemapjson ?? [];
   const hexRollData = gameState?.resourcerollsjson ?? [];
@@ -25,9 +26,9 @@ export default function MainGameScreen({route}) {
   const vertexData = gameState?.nodegraphjson ?? [];
   const resourceData = [0, 0, 0, 0, 0];
 
-  const playerNumber        = -1;
-  const playerTurn          = -1;
-  const isBuildingRoad      = false;
+  const playerNumber = -1;
+  const playerTurn = -1;
+  const isBuildingRoad = false;
   const roadSelectorVisible = false;
 
 

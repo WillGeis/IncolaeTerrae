@@ -30,6 +30,10 @@ const EDGE_NEIGHBORS = [
 
 // change mapsize accordingly
 function getHexRowsFromLength(totalHexes, topRow = 3, mapSize) {
+  console.log(`MapSize: ${mapSize}, Total Hexes: ${totalHexes}`);
+  
+  mapSize = Number(mapSize);
+  
   if (mapSize < 4) {
     throw new Error("MapSize must be at least 4");
   }
@@ -40,6 +44,8 @@ function getHexRowsFromLength(totalHexes, topRow = 3, mapSize) {
   let remainingHexes = totalHexes;
 
   for (let i = 0; i < mapSize; i++) {
+    console.log(`Row ${i}: xSize = ${xSize}, remainingHexes = ${remainingHexes}`);
+    
     // Make sure we don’t add more hexes than we have remaining
     const rowHexes = Math.min(xSize, remainingHexes);
     rows.push(rowHexes);
@@ -54,6 +60,8 @@ function getHexRowsFromLength(totalHexes, topRow = 3, mapSize) {
     // safety check
     if (xSize < topRow) break;
   }
+
+
 
   // If there are leftover hexes, distribute them starting from the middle
   let idx = Math.floor(rows.length / 2);
