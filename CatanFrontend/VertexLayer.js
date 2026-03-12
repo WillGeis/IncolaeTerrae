@@ -4,6 +4,8 @@ import { View, Pressable, StyleSheet } from "react-native";
 const boatColors = ["gray", "blue", "yellow", "red", "green", "white"];
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
+// DEPRICATED METHOD //
+/*
 function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
   let xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift;
 
@@ -48,6 +50,7 @@ function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
 
   return { xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift };
 }
+*/
 
 function getVertexScreenPos(rowIndex, colIndex, vertexData, xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift, totalWidth, HEX_SIZE) {
   const y = (() => {
@@ -66,17 +69,15 @@ function getVertexScreenPos(rowIndex, colIndex, vertexData, xSpacing, oddRowOffs
   return { x, y: y + (HEX_SIZE * 0.11) };
 }
 
-export default function VertexLayer({
-  vertexData,
-  boatData,
-  HEX_WIDTH,
-  HEX_HEIGHT,
-  HEX_SIZE,
-  MAP_SIZE,
-  onPressVertex,
-}) {
-  const { xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift } =
-    getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT);
+export default function VertexLayer({ vertexData, boatData, mapConfig, onPressVertex }) {
+  const {
+    HEX_SIZE,
+    VERTEX_X_SPACING: xSpacing,
+    VERTEX_ODD_OFFSET: oddRowOffset,
+    VERTEX_EVEN_OFFSET: evenRowOffset,
+    VERTEX_H_SHIFT: horizontalShift,
+    VERTEX_V_SHIFT: verticalShift,
+  } = mapConfig;
 
   const maxCols = Math.max(...vertexData.map((r) => r.length));
   const totalWidth = maxCols * xSpacing;

@@ -4,20 +4,22 @@ import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
 
-const SCALAR = 2.7;
-const HEX_SIZE = 60 * SCALAR;
-const HEX_WIDTH = HEX_SIZE;
-const HEX_HEIGHT = HEX_SIZE * 1.1547;
-const ROAD_WIDTH = 14;
+const BASE_HEX_SIZE = 60;
+const MAP_DEFAULTS = {
+  5: { scalar: 2.7, roadWidth: 14 },
+  7: { scalar: 1.9, roadWidth: 10 },
+  9: { scalar: 1.45, roadWidth: 8  },
+};
 
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
 export default function MainGameScreen({route}) {
+  /*
+  Data from server setters
+  */
   const gameState = route.params?.gameState;
-
   const MAP_SIZE = Number(gameState?.mapSizejson);
-  if (!MAP_SIZE) throw new Error("[ERROR] map size not received from server");
-
+  const defaults = MAP_DEFAULTS[MAP_SIZE];
   const hexData = gameState?.resourcemapjson ?? [];
   const hexRollData = gameState?.resourcerollsjson ?? [];
   const edgeData = gameState?.edgedatajson ?? [];
@@ -25,15 +27,92 @@ export default function MainGameScreen({route}) {
   const robberHex = gameState?.robberhexjson ?? -1;
   const vertexData = gameState?.nodegraphjson ?? [];
   const resourceData = [0, 0, 0, 0, 0];
-
   const playerNumber = -1;
   const playerTurn = -1;
   const isBuildingRoad = false;
   const roadSelectorVisible = false;
 
+  /*
+  Map size/aestetics
+  */
+  // GENERAL //
+  const SCALAR = defaults.scalar;
+  const HEX_SIZE = BASE_HEX_SIZE * SCALAR;
+  const HEX_WIDTH = HEX_SIZE;
+  const HEX_HEIGHT = HEX_SIZE * 1.1547;
+  const ROAD_WIDTH = defaults.roadWidth;
 
-  console.log("vertexData:", JSON.stringify(vertexData));
-  console.log("gameState keys:", gameState ? Object.keys(gameState) : "NO GAMESTATE");
+  // NODE //
+  const VERTEX_X_SPACING = HEX_WIDTH  / 1.0;
+  const VERTEX_ODD_OFFSET = HEX_HEIGHT / 5.0;
+  const VERTEX_EVEN_OFFSET = HEX_HEIGHT / 1.75;
+  const VERTEX_H_SHIFT = -HEX_WIDTH * 0.12;
+  const VERTEX_V_SHIFT = -(HEX_HEIGHT * 0.55) - 30;
+
+  // MAP CONFIG OBJ //
+  const mapConfig = {
+    MAP_SIZE,
+    HEX_SIZE,
+    HEX_WIDTH,
+    HEX_HEIGHT,
+    ROAD_WIDTH,
+    VERTEX_X_SPACING,
+    VERTEX_ODD_OFFSET,
+    VERTEX_EVEN_OFFSET,
+    VERTEX_H_SHIFT,
+    VERTEX_V_SHIFT,
+  };
+
+  ///// *1 //////
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.gridContainer}>
+        <HexGridScreen
+            hexData={hexData}
+            edgeData={edgeData}
+            hexRollData={hexRollData}
+            robberHex={robberHex}
+            roadSelectorVisible={roadSelectorVisible}
+            playerTurn={playerTurn}
+            playerNumber={playerNumber}
+            isBuildingRoad={isBuildingRoad}
+            mapConfig={mapConfig}
+            />
+        <VertexLayer
+            vertexData={vertexData}
+            boatData={boatData}
+            mapConfig={mapConfig}
+            onPressVertex={(row, col) =>
+                console.log("Vertex pressed:", row, col)
+            }
+        />
+      </View>
+      <ResourceOverlay resources={resourceData} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#090d18",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gridContainer: {
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
+
+
+////// *1 //////
+// Debug logs
+  //console.log("[LOG]vertexData:", JSON.stringify(vertexData));
+  //console.log("[LOG] gameState keys:", gameState ? Object.keys(gameState) : "NO GAMESTATE");
+  //if (!MAP_SIZE) throw new Error("[ERROR] map size not received from server");
 
   // OLD HARDCODED DATA, KEEP FOR TESTING
   /*
@@ -192,51 +271,4 @@ export default function MainGameScreen({route}) {
   }
 
   */ 
-  return (
-    <View style={styles.container}>
-      <View style={styles.gridContainer}>
-        <HexGridScreen
-            hexData={hexData}
-            edgeData={edgeData}
-            hexRollData={hexRollData}
-            robberHex={robberHex}
-            roadSelectorVisible={roadSelectorVisible}
-            HEX_SIZE={HEX_SIZE}
-            HEX_WIDTH={HEX_WIDTH}
-            HEX_HEIGHT={HEX_HEIGHT}
-            MAP_SIZE={MAP_SIZE}
-            ROAD_WIDTH={ROAD_WIDTH}
-            playerTurn={playerTurn}
-            playerNumber={playerNumber}
-            isBuildingRoad={isBuildingRoad}
-            />
-        <VertexLayer
-            vertexData={vertexData}
-            boatData={boatData}
-            HEX_WIDTH={HEX_WIDTH}
-            HEX_HEIGHT={HEX_HEIGHT}
-            HEX_SIZE={HEX_SIZE}
-            MAP_SIZE={MAP_SIZE}
-            onPressVertex={(row, col) =>
-                console.log("Vertex pressed:", row, col)
-            }
-        />
-      </View>
-      <ResourceOverlay resources={resourceData} />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#090d18",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gridContainer: {
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
+ ////// end of *1 //////

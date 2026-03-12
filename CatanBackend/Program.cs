@@ -208,17 +208,6 @@ app.MapPost("/host", (HostGameRequest req) =>
     });
 });
 
-// this doesnt need to be here I just use it for testing via the browser
-/*
-app.MapGet("/host", () =>
-{
-    return Results.Ok(new
-    {
-        serverIP = cloudflarePublicUrl ?? "starting"
-    });
-});
-*/
-
 app.MapPost("/join", (JoinRequest? req) =>
 {
     if (req == null || string.IsNullOrEmpty(req.Username))
@@ -239,18 +228,18 @@ app.MapPost("/join", (JoinRequest? req) =>
     });
 });
 
-app.MapPost("/startGame", () =>
-{
-    GameState.StartGame();
-    return Results.Ok(new { success = true, message = "Game started!" });
-});
-
 app.MapGet("/players", () =>
 {
     var players = GameState.GetPlayers()
         .Select(p => new { username = p.Username, guid = p.GUID })
         .ToList();
     return Results.Json(players);
+});
+
+app.MapPost("/startGame", () =>
+{
+    GameState.StartGame();
+    return Results.Ok(new { success = true, message = "Game started!" });
 });
 
 app.MapGet("/gamestate", () =>
@@ -1742,7 +1731,54 @@ public static class GameState
             Console.WriteLine("WARNING: Node (2,3) does not exist, with mapsize >5 this line should not come up");
         }
     }
+}
 
+public class Edge
+{
+    public int RoadPlayerID { get; set; }   // -1 is default, so no road
+    public (int x, double y) ConnectedNode { get; set; }
+}
+
+public class Node
+{
+    public int SettlementPlayerID { get; set; }   // -1 is default, so no settlement
+    public List<Edge> Edges { get; set; } = new List<Edge>();
+}
+
+public class Player
+{
+    public int PlayerID { get; set; }
+    public string Username { get; set; }
+    public Guid GUID { get; set; }
+    public bool IsHost { get; set; } = false;
+    public int Wheat { get; set; }
+    public int Bricks { get; set; }
+    public int Ore { get; set; }
+    public int Wood { get; set; }
+    public int Sheep { get; set; }
+    public List<(int x, double y)> Settlements { get; set; } = new List<(int x, double y)>();
+    public List<(int x, double y)> Cities { get; set; } = new List<(int x, double y)>();
+    public List<(int x1, int x2, double y1, double y2)> Roads { get; set; } = new List<(int x1, int x2, double y1, double y2)>();
+    public List<int> DevelopmentCards { get; set; } = new List<int>();
+    public int KnightsPlayed { get; set; }
+    public bool HasLargestArmy { get; set; }
+    public bool HasLongestRoad { get; set; }
+    public int ExtraPoints { get; set; }
+}
+
+
+///////////////////////////////////////////////// DEPRICATED CODE KEPT FOR FUTURE REFERENCE //////////////////////////////////////////////////////
+
+// this doesnt need to be here I just use it for testing via the browser
+/*
+app.MapGet("/host", () =>
+{
+    return Results.Ok(new
+    {
+        serverIP = cloudflarePublicUrl ?? "starting"
+    });
+});
+*/
 
     /*
     AI GENERATED SERIALIZATION METHODS
@@ -1796,7 +1832,7 @@ public static class GameState
     });
 
     app.Run();
-    */
+    
     public static object GetResourceMapAsJson()
     {
         if (ResourceMap == null)
@@ -1955,39 +1991,4 @@ public static class GameState
 
         return result;
     }
-
-
-}
-
-public class Edge
-{
-    public int RoadPlayerID { get; set; }   // -1 is default, so no road
-    public (int x, double y) ConnectedNode { get; set; }
-}
-
-public class Node
-{
-    public int SettlementPlayerID { get; set; }   // -1 is default, so no settlement
-    public List<Edge> Edges { get; set; } = new List<Edge>();
-}
-
-public class Player
-{
-    public int PlayerID { get; set; }
-    public string Username { get; set; }
-    public Guid GUID { get; set; }
-    public bool IsHost { get; set; } = false;
-    public int Wheat { get; set; }
-    public int Bricks { get; set; }
-    public int Ore { get; set; }
-    public int Wood { get; set; }
-    public int Sheep { get; set; }
-    public List<(int x, double y)> Settlements { get; set; } = new List<(int x, double y)>();
-    public List<(int x, double y)> Cities { get; set; } = new List<(int x, double y)>();
-    public List<(int x1, int x2, double y1, double y2)> Roads { get; set; } = new List<(int x1, int x2, double y1, double y2)>();
-    public List<int> DevelopmentCards { get; set; } = new List<int>();
-    public int KnightsPlayed { get; set; }
-    public bool HasLargestArmy { get; set; }
-    public bool HasLongestRoad { get; set; }
-    public int ExtraPoints { get; set; }
-}
+*/

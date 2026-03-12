@@ -11,8 +11,8 @@ const spriteMap = [sprite1, sprite2, sprite3, sprite4, sprite5, sprite6];
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
 const EDGE_POSITIONS = [
-  { x: 0,    y: 0.5   }, // 0 - left
-  { x: 1,    y: 0.5   }, // 1 - right
+  { x: 0, y: 0.5 }, // 0 - left
+  { x: 1, y: 0.5 }, // 1 - right
   { x: 0.25, y: 0.125 }, // 2 - top left
   { x: 0.75, y: 0.125 }, // 3 - top right
   { x: 0.25, y: 0.875 }, // 4 - bottom left
@@ -20,12 +20,12 @@ const EDGE_POSITIONS = [
 ]
 
 const EDGE_NEIGHBORS = [
-  { rowOff: 0,  colOff: -1, neighborEdge: 1 }, // 0: left  = neighbor's right
-  { rowOff: 0,  colOff:  1, neighborEdge: 0 }, // 1: right = neighbor's left
+  { rowOff: 0, colOff: -1, neighborEdge: 1 }, // 0: left  = neighbor's right
+  { rowOff: 0, colOff:  1, neighborEdge: 0 }, // 1: right = neighbor's left
   { rowOff: -1, colOff: -1, neighborEdge: 5 }, // 2: top left = neighbor's bottom right (upper-left row is offset)
-  { rowOff: -1, colOff:  0, neighborEdge: 4 }, // 3: top right = neighbor's bottom left
-  { rowOff:  1, colOff:  0, neighborEdge: 2 }, // 4: bottom left = neighbor's top left (lower row offset)
-  { rowOff:  1, colOff:  1, neighborEdge: 3 }, // 5: bottom right = neighbor's top right
+  { rowOff: -1, colOff: 0, neighborEdge: 4 }, // 3: top right = neighbor's bottom left
+  { rowOff: 1, colOff: 0, neighborEdge: 2 }, // 4: bottom left = neighbor's top left (lower row offset)
+  { rowOff: 1, colOff: 1, neighborEdge: 3 }, // 5: bottom right = neighbor's top right
 ];
 
 // change mapsize accordingly
@@ -86,7 +86,9 @@ function buildHexIndexMap(rows) {
   return map;
 }
 
-export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeData, roadSelectorVisible, HEX_WIDTH, HEX_HEIGHT, MAP_SIZE, ROAD_WIDTH, playerTurn, playerNumber, isBuildingRoad }) {
+export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeData, roadSelectorVisible, playerTurn, playerNumber, isBuildingRoad, mapConfig }) {
+  const { HEX_WIDTH, HEX_HEIGHT, MAP_SIZE, ROAD_WIDTH } = mapConfig;
+  
   if (!hexData?.length) return null;
   if (!edgeData?.length) return null;
 
