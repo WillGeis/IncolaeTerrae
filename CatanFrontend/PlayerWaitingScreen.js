@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { usePlayer } from "./PlayerContext";
+import useGameHub from "./useGameHub";
 
 const API_BASE = "http://localhost:5082";
 
@@ -9,7 +10,25 @@ export default function PlayerWaitingScreen({ navigation }) {
   const [serverIP, setServerIP] = useState("Loading...............");
   const [players, setPlayers] = useState([]);
 
+  const serverUrl = route.params?.serverIP ?? API_BASE;
+
   console.log("[DEBUG] PlayerWaitingScreen render | isHost =", isHost);
+
+  const { connected } = useGameHub(
+    serverUrl,
+    (gameState) => {
+      navigation.replace("MainGame", { gameState, serverIP: serverUrl });
+    },
+    async () => {
+      try {
+        const res = await fetch(`${serverUrl}/players`);
+        const data = await res.json();
+        setPlayers(data);
+      } catch (err) {
+        console.error("[ERROR] fetch players failed:", err);
+      }
+    }
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -51,8 +70,6 @@ export default function PlayerWaitingScreen({ navigation }) {
     fetchServerIP();
     fetchPlayers();
 
-    const interval = setInterval(fetchPlayers, 5000); // 5 second polling
-
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -85,19 +102,23 @@ export default function PlayerWaitingScreen({ navigation }) {
       const data = await res.json();
       console.log("[DEBUG] startGame response:", data);
 
-      if (data.success) {
-        navigation.replace("Loading");
-      } else {
-        Alert.alert("Start failed", data.message ?? "Unknown error");
+      if (!data.success) {
+        Alert.alert("[ERROR] Failed to start game", data.message || "[ERROR] Unknown error");
       }
     } catch (err) {
       console.error("[ERROR] startGame request failed:", err);
-      Alert.alert("Failed to start game");
+      Alert.alert("[ERROR] Failed to start game");
     }
   };
 
   return (
     <View style={styles.container}>
+
+      <View style={styles.hubStatus}>
+        <View style={[styles.hubDot, { backgroundColor: connected ? "#00ff99" : "#e24b25" }]} />
+        <Text style={styles.hubText}>{connected ? "Live" : "Connecting..."}</Text>
+      </View>
+
       <Text style={styles.title}>Players Connected:</Text>
 
       <View style={styles.playerList}>
@@ -109,10 +130,16 @@ export default function PlayerWaitingScreen({ navigation }) {
         ))}
       </View>
 
-      <Text style={styles.status}>Waiting for more players...</Text>
+      <Text style={styles.status}>
+        {players.length < 2 ? "Waiting for more players..." : "Ready to start!"}
+      </Text>
 
       {isHost && (
-        <Pressable onPress={handleStartGame} style={styles.startButton}>
+        <Pressable
+          onPress={handleStartGame}
+          style={[styles.startButton, !connected && styles.startButtonDisabled]}
+          disabled={!connected}
+        >
           <Text style={styles.buttonText}>Go</Text>
         </Pressable>
       )}
@@ -120,6 +147,7 @@ export default function PlayerWaitingScreen({ navigation }) {
       <Pressable style={styles.ipBox} onPress={copyToClipboard}>
         <Text style={styles.ipText}>{serverIP}</Text>
       </Pressable>
+
     </View>
   );
 }
@@ -152,4 +180,18 @@ const styles = StyleSheet.create({
     borderColor: "#00ff99",
   },
   ipText: { color: "#00ff99", fontWeight: "bold", fontFamily: "Jersey10", fontSize: 30 },
+  hubStatus: {
+    position: "absolute",
+    top: 20,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  hubDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  hubText: { color: "#94a3b8", fontFamily: "Jersey10", fontSize: 16 },
 });

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePlayer } from "./PlayerContext";
 
 export default function JoinGame({ navigation }) {
@@ -7,36 +8,53 @@ export default function JoinGame({ navigation }) {
   const [status, setStatus] = useState("");
   const { username, guid, setGuid } = usePlayer();
 
-  const joinGame = async () => {
-    if (!username) {
-        setStatus("Missing username");
-        return;
-    }
+  useEffect(() => {
+    const loadStored = async () => {
+      const storedUrl = await AsyncStorage.getItem("lastServerUrl");
+      if (storedUrl) setServerUrl(storedUrl);
+    };
+    loadStored();
+  }, []);
 
-    if (!serverUrl) {
-        setStatus("Missing server URL");
-        return;
-    }
+  const joinGame = async () => {
+    if (!username) { setStatus("Missing username"); return; }
+    if (!serverUrl) { setStatus("Missing server URL"); return; }
 
     try {
-      const res = await fetch(`${serverUrl}/join`, {
+      const storedGuid = await AsyncStorage.getItem("playerGuid");
+
+      const res = await fetch(`${serverUrl}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Username: username }),
+        body: JSON.stringify({
+          username: username,
+          existingGuid: storedGuid ?? null,
+        }),
       });
 
       const data = await res.json();
 
-      if (data.success) {
-        setStatus("Joined successfully!");
-        setGuid(data.playerGUID);
-        navigation.navigate("PlayerWaiting");
-      } else {
-        setStatus("Failed to join: " + (data.message || "Unknown error"));
+      if (!res.ok) {
+        setStatus("[ERROR] Failed to join: " + (data || "[ERROR] Unknown error"));
+        return;
       }
+
+      await AsyncStorage.setItem("playerGuid", data.guid);
+      await AsyncStorage.setItem("lastServerUrl", serverUrl);
+
+      setGuid(data.guid);
+
+      if (data.reconnected) {
+        setStatus("[CONNECTION] Reconnected to existing session!");
+      } else {
+        setStatus("[CONNECTION] Joined successfully!");
+      }
+
+      navigation.navigate("PlayerWaiting", { serverIP: serverUrl });
+
     } catch (err) {
-      console.error("Failed to join:", err);
-      setStatus("Failed to join game.");
+      console.error("[ERROR] Failed to join:", err);
+      setStatus("[ERROR] Failed to join game.");
     }
   };
 

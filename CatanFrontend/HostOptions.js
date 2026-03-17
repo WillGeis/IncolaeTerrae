@@ -1,81 +1,68 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
-import Slider from "@react-native-community/slider";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePlayer } from "./PlayerContext";
 
-export default function HostOptions({ visible, onClose, onStartGame }) {
-  const [mapSize, setMapSize] = useState(5);
-  const [victoryPoints, setVictoryPoints] = useState(10);
-  const { username } = usePlayer();
+export default function HostWaitingScreen({ route, navigation }) {
+  const { hostConfig } = route.params;
+  const [status, setStatus] = useState("Starting server...");
+  const { setGuid } = usePlayer();
 
-  console.log("[DEBUG] HostOptions render | visible =", visible, "| username =", username);
+  useEffect(() => {
+    const pingServer = async () => {
+      try {
+        const res = await fetch("http://localhost:5082/host", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(hostConfig),
+        });
 
-  const handleGo = () => {
-    console.log("[DEBUG] Go button pressed in HostOptions!");
-    console.log("[DEBUG] onStartGame type:", typeof onStartGame);
-    console.log("[DEBUG] username:", username, "| mapSize:", mapSize, "| victoryPoints:", victoryPoints);
+        const rawText = await res.text();
+        if (!res.ok) throw new Error(`Server rejected host: ${rawText}`);
+        const data = JSON.parse(rawText);
 
-    if (typeof onStartGame !== "function") {
-      console.error("[ERROR] onStartGame is not a function!");
-      return;
-    }
+        const storedGuid = await AsyncStorage.getItem("playerGuid");
 
-    onStartGame({
-      HostUsername: username,
-      mapSize: Number(mapSize),
-      mapType: 1,
-      winCondition: 1,
-      winPoints: Number(victoryPoints),
-    });
-  };
+        const regRes = await fetch("http://localhost:5082/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: hostConfig.HostUsername,
+            existingGuid: storedGuid ?? null,
+          }),
+        });
+
+        const regData = await regRes.json();
+
+        await AsyncStorage.setItem("playerGuid", regData.guid);
+        await AsyncStorage.setItem("lastServerUrl", data.serverIP ?? "http://localhost:5082");
+
+        setGuid(regData.guid);
+
+        if (regData.reconnected) {
+          setStatus("Reconnected as host. Waiting for players...");
+        } else {
+          setStatus("Server online. Waiting for players...");
+        }
+
+        setTimeout(() => {
+          navigation.replace("PlayerWaiting", { serverIP: data.serverIP });
+        }, 1500);
+
+      } catch (err) {
+        setStatus("Failed to start server");
+        console.error(err);
+      }
+    };
+
+    pingServer();
+  }, []);
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalBackground}>
-        <View style={styles.modalContainer}>
-
-          <Text style={styles.label}>Select Map Size</Text>
-          <View style={styles.mapSizeContainer}>
-            {[5, 7, 9].map((size) => (
-              <Pressable
-                key={size}
-                style={[
-                  styles.mapSizeButton,
-                  mapSize === size && styles.mapSizeButtonSelected,
-                ]}
-                onPress={() => setMapSize(size)}
-              >
-                <Text style={styles.mapSizeText}>{size}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Victory Points Needed: {victoryPoints}</Text>
-          <Slider
-            minimumValue={5}
-            maximumValue={30}
-            step={1}
-            value={victoryPoints}
-            onValueChange={setVictoryPoints}
-            minimumTrackTintColor="#e24b25"
-            maximumTrackTintColor="#fff"
-            style={{ width: 250 }}
-          />
-
-          <Pressable style={styles.goButton} onPress={handleGo}>
-            <Text style={styles.buttonText}>Go</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.goButton, { backgroundColor: "#e24b25" }]}
-            onPress={onClose}
-          >
-            <Text style={styles.buttonText}>Cancel</Text>
-          </Pressable>
-
-        </View>
-      </View>
-    </Modal>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#e24b25" />
+      <Text style={styles.text}>{status}</Text>
+    </View>
   );
 }
 
