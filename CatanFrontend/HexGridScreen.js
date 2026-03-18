@@ -61,9 +61,6 @@ function getHexRowsFromLength(totalHexes, topRow = 3, mapSize) {
     if (xSize < topRow) break;
   }
 
-
-
-  // If there are leftover hexes, distribute them starting from the middle
   let idx = Math.floor(rows.length / 2);
   while (remainingHexes > 0) {
     rows[idx]++;
@@ -165,7 +162,6 @@ export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeDat
                   pointerEvents="box-none"
                   style={{ width: HEX_WIDTH, height: HEX_HEIGHT }}
                 >
-                  {/* Clipped hex */}
                   <View
                     style={{
                       width: HEX_WIDTH,
@@ -189,8 +185,6 @@ export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeDat
                     {/* bottom right */}
                     <View style={{ position: "absolute", width: ROAD_WIDTH, height: HEX_HEIGHT * .5, bottom: 0, right: 0, backgroundColor: getEdgeColor(edges[5]), transform: [{ rotate: "60deg" }, { translateY: HEX_HEIGHT * 0.25 }] }} />
                   </View>
-
-                  {/* Numbers + robber — outside clip */}
                   <View style={{ position: "absolute", top: 0, left: 0, width: HEX_WIDTH, height: HEX_HEIGHT, justifyContent: "center", alignItems: "center", pointerEvents: "none" }}>
                     <Text style={{ color: "white", fontSize: HEX_WIDTH * 0.18, fontWeight: "bold" }}>
                       {hexRollData[hexIndex]}
@@ -199,8 +193,6 @@ export default function HexGridScreen({ hexData, hexRollData, robberHex, edgeDat
                       <View style={{ position: "absolute", width: HEX_WIDTH * 0.2, height: HEX_HEIGHT * 0.4, backgroundColor: "gray", borderRadius: 4 }} />
                     )}
                   </View>
-
-                  {/* Road selector circles — outside clip */}
                   {isBuildingRoad && playerTurn === playerNumber && EDGE_POSITIONS.map((pos, edgeIdx) => {
                     // Don't show if road already placed here
                     if (edges[edgeIdx] !== -1) return null;

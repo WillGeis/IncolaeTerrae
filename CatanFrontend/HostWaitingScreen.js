@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { usePlayer } from "./PlayerContext";
 
 export default function HostWaitingScreen({ route, navigation }) {
   const { hostConfig } = route.params;
+  const { setGuid } = usePlayer();
   const [status, setStatus] = useState("Starting server...");
 
   useEffect(() => {
@@ -31,10 +33,12 @@ export default function HostWaitingScreen({ route, navigation }) {
           throw e;
         }
 
+        setGuid(data.playerGUID);
+
         setStatus("Server online. Waiting for players...");
 
         setTimeout(() => {
-          navigation.replace("PlayerWaiting", { serverIP: data.serverIP });
+          navigation.replace("PlayerWaiting", { serverIP: data.serverIP, playerGUID: data.playerGUID });
         }, 1500);
 
       } catch (err) {
@@ -60,9 +64,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#090d18",
     justifyContent: "center",
     alignItems: "center",
+    gap: 20,
   },
   text: {
     color: "#e0e7ff",
+    fontFamily: "Jersey10",
     fontSize: 18,
     marginTop: 20,
   },

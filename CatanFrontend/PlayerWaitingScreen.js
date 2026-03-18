@@ -1,23 +1,27 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { usePlayer } from "./PlayerContext";
 import useGameHub from "./useGameHub";
 
 const API_BASE = "http://localhost:5082";
 
-export default function PlayerWaitingScreen({ navigation }) {
+export default function PlayerWaitingScreen({ route, navigation }) {
   const { guid, isHost } = usePlayer();
   const [serverIP, setServerIP] = useState("Loading...............");
   const [players, setPlayers] = useState([]);
 
   const serverUrl = route.params?.serverIP ?? API_BASE;
+  const playerGUID = route.params?.playerGUID ?? guid;
+
+  const startingRef = useRef(false);
 
   console.log("[DEBUG] PlayerWaitingScreen render | isHost =", isHost);
 
   const { connected } = useGameHub(
     serverUrl,
+    playerGUID,
     (gameState) => {
-      navigation.replace("MainGame", { gameState, serverIP: serverUrl });
+      navigation.replace("Game", { gameState, serverIP: serverUrl });
     },
     async () => {
       try {
@@ -72,7 +76,6 @@ export default function PlayerWaitingScreen({ navigation }) {
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, []);
 
@@ -90,6 +93,9 @@ export default function PlayerWaitingScreen({ navigation }) {
     console.log("[DEBUG] Go button pressed!");
     console.log("[DEBUG] Host GUID:", guid);
 
+    if (startingRef.current) return;
+    startingRef.current = true;
+
     try {
       const res = await fetch(`${API_BASE}/startGame`, {
         method: "POST",
@@ -105,6 +111,8 @@ export default function PlayerWaitingScreen({ navigation }) {
       if (!data.success) {
         Alert.alert("[ERROR] Failed to start game", data.message || "[ERROR] Unknown error");
       }
+
+      navigation.replace("Loading");
     } catch (err) {
       console.error("[ERROR] startGame request failed:", err);
       Alert.alert("[ERROR] Failed to start game");

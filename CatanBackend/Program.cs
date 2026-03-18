@@ -30,6 +30,7 @@ builder.Services.AddSignalR();
 /*
 This is the security for testing on a local device
 */
+/*
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -39,6 +40,7 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+*/
 
 /*
 This is the security for all devices
@@ -47,10 +49,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy
-            .AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 

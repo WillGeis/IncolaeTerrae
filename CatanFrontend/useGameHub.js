@@ -1,9 +1,8 @@
-// New file: useGameHub.js
 import * as signalR from "@microsoft/signalr";
 import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function useGameHub(serverUrl, onGameStateUpdated, onPlayerJoined) {
+export default function useGameHub(serverUrl, playerGUID, onGameStateUpdated, onPlayerJoined) {
   const connectionRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
@@ -11,20 +10,18 @@ export default function useGameHub(serverUrl, onGameStateUpdated, onPlayerJoined
     if (!serverUrl) return;
 
     const connect = async () => {
-      const guid = await AsyncStorage.getItem("playerGuid");
+      const guid = playerGUID;
 
       const connection = new signalR.HubConnectionBuilder()
         .withUrl(`${serverUrl}/gamehub`)
         .withAutomaticReconnect()
         .build();
 
-      connection.on("GameStateUpdated", (gameState) => { console.log("[SIGNALR] Game state updated!"); onGameStateUpdated?.(gameState); }); // Listen for game state updates pushed from server
+      connection.on("GameStateUpdated", (gameState) => { console.log("[SIGNALR] Game state updated!"); onGameStateUpdated?.(gameState); });
 
-      connection.on("PlayerJoined", (username) => { console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username); }); // Listen for player join events
+      connection.on("PlayerJoined", (username) => { console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username); });
 
       connection.on("Error", (msg) => { console.error("[SIGNALR] Error:", msg); });
-
-      connection.onreconnected(() => { console.log("[SIGNALR] Reconnected, rejoining room..."); connection.invoke("JoinRoom", guid); });
 
       await connection.start();
       await connection.invoke("JoinRoom", guid);
@@ -41,13 +38,12 @@ export default function useGameHub(serverUrl, onGameStateUpdated, onPlayerJoined
     };
   }, [serverUrl]);
 
-  // Call this to send a move to the server
   const sendMove = async (moveType, moveData) => {
     if (!connectionRef.current || !connected) {
       console.warn("[SIGNALR] Not connected, cannot send move!");
       return;
     }
-    const guid = await AsyncStorage.getItem("playerGuid");
+    const guid = playerGUID;
     await connectionRef.current.invoke("PlayerMove", guid, moveType, moveData);
   };
 

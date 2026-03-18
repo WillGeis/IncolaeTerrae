@@ -3,6 +3,7 @@ import { View, StyleSheet } from "react-native";
 import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
+import PanZoomView from "./PanZoomView";
 
 const BASE_HEX_SIZE = 60;
 const MAP_DEFAULTS = {
@@ -67,8 +68,9 @@ export default function MainGameScreen({route}) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.gridContainer}>
-        <HexGridScreen
+      <PanZoomView>
+        <View style={styles.gridContainer}>
+          <HexGridScreen
             hexData={hexData}
             edgeData={edgeData}
             hexRollData={hexRollData}
@@ -78,16 +80,15 @@ export default function MainGameScreen({route}) {
             playerNumber={playerNumber}
             isBuildingRoad={isBuildingRoad}
             mapConfig={mapConfig}
-            />
-        <VertexLayer
+          />
+          <VertexLayer
             vertexData={vertexData}
             boatData={boatData}
             mapConfig={mapConfig}
-            onPressVertex={(row, col) =>
-                console.log("Vertex pressed:", row, col)
-            }
-        />
-      </View>
+            onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
+          />
+        </View>
+      </PanZoomView>
       <ResourceOverlay resources={resourceData} />
     </View>
   );

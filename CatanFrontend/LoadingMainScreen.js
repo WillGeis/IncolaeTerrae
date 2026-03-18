@@ -20,7 +20,6 @@ export default function LoadingScreenMain({ navigation }) {
       })
     ).start();
 
-    // Pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {

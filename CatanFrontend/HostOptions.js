@@ -1,68 +1,66 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useState } from "react";
+import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
+import Slider from "@react-native-community/slider";
 import { usePlayer } from "./PlayerContext";
 
-export default function HostWaitingScreen({ route, navigation }) {
-  const { hostConfig } = route.params;
-  const [status, setStatus] = useState("Starting server...");
-  const { setGuid } = usePlayer();
+export default function HostOptions({ visible, onClose, onStartGame }) {
+  const [mapSize, setMapSize] = useState(null);
+  const [victoryPoints, setVictoryPoints] = useState(10);
+  const { username } = usePlayer();
 
-  useEffect(() => {
-    const pingServer = async () => {
-      try {
-        const res = await fetch("http://localhost:5082/host", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(hostConfig),
-        });
-
-        const rawText = await res.text();
-        if (!res.ok) throw new Error(`Server rejected host: ${rawText}`);
-        const data = JSON.parse(rawText);
-
-        const storedGuid = await AsyncStorage.getItem("playerGuid");
-
-        const regRes = await fetch("http://localhost:5082/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: hostConfig.HostUsername,
-            existingGuid: storedGuid ?? null,
-          }),
-        });
-
-        const regData = await regRes.json();
-
-        await AsyncStorage.setItem("playerGuid", regData.guid);
-        await AsyncStorage.setItem("lastServerUrl", data.serverIP ?? "http://localhost:5082");
-
-        setGuid(regData.guid);
-
-        if (regData.reconnected) {
-          setStatus("Reconnected as host. Waiting for players...");
-        } else {
-          setStatus("Server online. Waiting for players...");
-        }
-
-        setTimeout(() => {
-          navigation.replace("PlayerWaiting", { serverIP: data.serverIP });
-        }, 1500);
-
-      } catch (err) {
-        setStatus("Failed to start server");
-        console.error(err);
-      }
-    };
-
-    pingServer();
-  }, []);
+  const handleGo = () => {
+    if (!mapSize) return;
+    onStartGame({
+      HostUsername: username,
+      MapSize: mapSize,
+      MapType: 1,
+      WinCondition: 1,
+      WinPoints: victoryPoints,
+    });
+  };
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#e24b25" />
-      <Text style={styles.text}>{status}</Text>
-    </View>
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <View style={styles.modalBackground}>
+        <View style={styles.modalContainer}>
+
+          <Text style={styles.label}>Map Size</Text>
+          <View style={styles.mapSizeContainer}>
+            {[5, 7, 9].map((size) => (
+              <Pressable
+                key={size}
+                style={[styles.mapSizeButton, mapSize === size && styles.mapSizeButtonSelected]}
+                onPress={() => setMapSize(size)}
+              >
+                <Text style={styles.mapSizeText}>{size}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Victory Points: {victoryPoints}</Text>
+          <Slider
+            style={{ width: "100%", height: 40 }}
+            minimumValue={5}
+            maximumValue={20}
+            step={1}
+            value={victoryPoints}
+            onValueChange={(val) => setVictoryPoints(val)}
+            minimumTrackTintColor="#00ff99"
+            maximumTrackTintColor="#334155"
+            thumbTintColor="#e24b25"
+          />
+
+          <Pressable style={styles.goButton} onPress={handleGo}>
+            <Text style={styles.buttonText}>Host Game</Text>
+          </Pressable>
+
+          <Pressable onPress={onClose} style={{ marginTop: 12 }}>
+            <Text style={{ color: "#94a3b8", fontFamily: "Jersey10", fontSize: 16 }}>Cancel</Text>
+          </Pressable>
+
+        </View>
+      </View>
+    </Modal>
   );
 }
 

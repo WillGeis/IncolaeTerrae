@@ -30,26 +30,11 @@ export default function LobbyScreen({ navigation }) {
     }
 
     setHostOptionsVisible(false);
+    setIsHost(true);
+    setUsername(hostConfig.HostUsername);
+    hostRequestedRef.current = false;
 
-    try {
-      const res = await fetch(`${API_BASE}/host`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(hostConfig),
-      });
-
-      const data = await res.json();
-
-      setGuid(data.playerGUID);
-      setIsHost(true);
-      setUsername(hostConfig.HostUsername);
-
-      hostRequestedRef.current = false;
-      navigation.navigate("HostWaiting", { hostConfig });
-    } catch (err) {
-      console.error("Failed to register host:", err);
-      hostRequestedRef.current = false;
-    }
+    navigation.navigate("HostWaiting", { hostConfig });
   };
 
   return (
