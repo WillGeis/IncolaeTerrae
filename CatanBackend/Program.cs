@@ -1812,19 +1812,26 @@ public static class GameState
         int connectionX2;
         double connectionY2;
 
-        int spacing = numPerimiterNodes / totalBoats;
+        int spacing = 3;//numPerimiterNodes / totalBoats;
 
         for (int i = 0; i < totalBoats; i++)
         {
             int specificResource =rng.Next(0, 6);
-            
-            connectionX1 = PerimeterNodes[i * spacing].x;
-            connectionY1 = PerimeterNodes[i * spacing].y;
-            connectionX2 = PerimeterNodes[i * spacing + 1].x;
-            connectionY2 = PerimeterNodes[i * spacing + 1].y;
 
-            BoatConnections[(connectionX1, connectionY1)] = specificResource; // starting Node
-            BoatConnections[(connectionX2, connectionY2)] = specificResource; // ending Node
+            try
+            {
+                connectionX1 = PerimeterNodes[i * spacing].x;
+                connectionY1 = PerimeterNodes[i * spacing].y;
+                connectionX2 = PerimeterNodes[i * spacing + 1].x;
+                connectionY2 = PerimeterNodes[i * spacing + 1].y;
+
+                BoatConnections[(connectionX1, connectionY1)] = specificResource; // starting Node
+                BoatConnections[(connectionX2, connectionY2)] = specificResource; // ending Node
+            } catch
+            {
+                i = totalBoats;
+            }
+            
         }
     }
 

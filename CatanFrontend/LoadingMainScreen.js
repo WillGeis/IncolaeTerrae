@@ -39,6 +39,7 @@ export default function LoadingScreenMain({ navigation }) {
 
     // Poll gamestate until received 3 seconds total
     let isMounted = true;
+    let pollTimeout = 0;
     const pollGameState = async () => {
       try {
         console.log("[DEBUG] Polling /gamestate...");
@@ -50,15 +51,33 @@ export default function LoadingScreenMain({ navigation }) {
           return;
         }
 
-        const data = await res.json();
-        console.log("[DEBUG] /gamestate received:", data);
+        const gameState = await res.json();
+        console.log("[DEBUG] /gamestate received:", gameState);
 
-        if (isMounted && data) {
-          navigation.replace("Game", { gameState: data });
+        // Fetch player state alongside game state
+        let playerState = null;
+        if (playerNumber != null && playerNumber >= 0) {
+          try {
+            const psRes = await fetch(`${API_BASE}/playerState?playerID=${playerNumber}`);
+            if (psRes.ok) {
+              playerState = await psRes.json();
+              console.log("[DEBUG] /playerState received:", playerState);
+            }
+          } catch (err) {
+            console.warn("[WARN] /playerState fetch failed:", err);
+          }
+        }
+
+        if (isMounted && gameState) {
+          navigation.replace("Game", { gameState, playerState });
         }
       } catch (err) {
-        console.error("[ERROR] /gamestate fetch failed:", err);
-        if (isMounted) setTimeout(pollGameState, 1500);
+        console.warn("[WARN] /gamestate fetch failed:", err);
+        pollTimeout++;
+        if (isMounted && pollTimeout < 25) setTimeout(pollGameState, 1500);
+        else {
+          navigation.replace("Lobby");
+        }
       }
     };
 

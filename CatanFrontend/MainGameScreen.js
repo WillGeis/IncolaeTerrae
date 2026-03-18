@@ -4,6 +4,7 @@ import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
 import PanZoomView from "./PanZoomView";
+import DevCardOverlay from "./DevCardOverlay";
 
 const BASE_HEX_SIZE = 60;
 const MAP_DEFAULTS = {
@@ -32,6 +33,9 @@ export default function MainGameScreen({route}) {
   const playerTurn = -1;
   const isBuildingRoad = false;
   const roadSelectorVisible = false;
+  const playerState = route.params?.playerState;
+  const devCards = playerState?.playerDevCardsjson ?? [];
+  const playerPoints = playerState?.playerPoints ?? 0;
 
   /*
   Map size/aestetics
@@ -90,6 +94,7 @@ export default function MainGameScreen({route}) {
         </View>
       </PanZoomView>
       <ResourceOverlay resources={resourceData} />
+      <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
     </View>
   );
 }
