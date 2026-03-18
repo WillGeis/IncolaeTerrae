@@ -279,6 +279,11 @@ app.MapGet("/gamestate", () =>
     return GameState.GameStatePackager();
 });
 
+app.MapGet("/playerState", (int playerID) =>
+{
+    return GameState.PlayerStatePackager(playerID);
+});
+
 /*
 app.MapPost("/start", (Guid guid) =>
 {
@@ -536,6 +541,70 @@ public static class GameState
         catch (InvalidOperationException ex)
         {
             return Results.Json(new { error = ex.Message });
+        }
+    }
+
+    public static IResult PlayerStatePackager(int playerID)
+    {
+        try
+        {
+            var playerDevCards = PackagePlayerDevCards(playerID);
+            var playerResources = PackagePlayerResources(playerID);
+            var playerPoints = Players[playerID].Settlements.Count + Players[playerID].Cities.Count * 2 + (Players[playerID].HasLargestArmy ? 2 : 0) + (Players[playerID].HasLongestRoad ? 2 : 0);
+
+            return Results.Json(new
+            {
+                playerDevCardsjson = playerDevCards,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Json(new { error = ex.Message });
+        }
+    }
+
+    /*
+    { 1, "Knight" },
+    { 2, "Monopoly" },
+    { 3, "Road Building" },
+    { 4, "Year of Plenty" },
+    { 5, "Victory Point" }
+    */
+    private static int[] PackagePlayerDevCards(int playerID)
+    {
+        int[] devCards = new int[5];
+        try
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                devCards[i] = Players[playerID].DevelopmentCards[0];
+            }
+            return devCards;
+        }
+        catch
+        {
+            return (devCards = [-1, -1, -1, -1, -1]);
+        }
+    }
+
+    /*
+    { 1, "Wheat" },
+    { 2, "Brick" },
+    { 3, "Ore" },
+    { 4, "Wood" },
+    { 5, "Sheep" }
+    */
+    private static int[] PackagePlayerResources(int playerID)
+    {
+        int[] resources = new int[5];
+        try
+        {
+            resources = [Players[playerID].Wheat, Players[playerID].Bricks, Players[playerID].Ore, Players[playerID].Wood, Players[playerID].Sheep];
+            return resources;
+        }
+        catch
+        {
+            return (resources = [-1, -1, -1, -1, -1]);
         }
     }
 
