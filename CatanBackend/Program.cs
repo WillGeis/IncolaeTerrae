@@ -4,6 +4,8 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.OpenApi.Services;
+using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
 
 
 /*
@@ -26,21 +28,6 @@ var builder = WebApplication.CreateBuilder(args);
 This is to have the frontend not have to pull all the time during gameloop 
 */
 builder.Services.AddSignalR();
-
-/*
-This is the security for testing on a local device
-*/
-/*
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:8082")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
-*/
 
 /*
 This is the security for all devices
@@ -284,14 +271,48 @@ app.MapGet("/playerState", (int playerID) =>
     return GameState.PlayerStatePackager(playerID);
 });
 
-/*
-app.MapPost("/start", (Guid guid) =>
+app.MapGet("/processMove", async (HttpContext http, string guid, int moveType, string moveDataJson) =>
 {
-    GameState.RequestStartGame(guid);
-    Console.WriteLine("[GAME] Game Started!");
-    return Results.Ok();
+    var player = GameState.GetPlayers().FirstOrDefault(p => p.GUID.ToString() == guid);
+    var hubContext = http.RequestServices.GetRequiredService<IHubContext<GameHub>>();
+
+    if (player == null) return Results.Json(new { success = false, error = "[ERROR] Player not found" });
+
+    object moveData;
+    try
+    {
+        moveData = moveType switch
+        {
+            0 => JsonSerializer.Deserialize<GameState.PlaceSettlementData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceSettlementData"),
+            1 => JsonSerializer.Deserialize<GameState.PlaceCityData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceCityData"),
+            2 => JsonSerializer.Deserialize<GameState.PlaceRoadData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceRoadData"),
+            3 => JsonSerializer.Deserialize<GameState.DevCardBuyData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for DevCardBuyData"),
+            4 => JsonSerializer.Deserialize<GameState.PlayDevCardData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlayDevCardData"),
+            5 => JsonSerializer.Deserialize<GameState.EndTurnData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for EndTurnData"),
+            _ => throw new ArgumentException($"[ERROR] Unknown move type: {moveType}")
+        };
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.Json(new { success = false, error = ex.Message });
+    }
+
+    var result = GameState.ProcessMove(player, moveType, moveData);
+
+    if (result.Success)
+    {
+        var gameState = GameState.GameStatePackager();
+        await hubContext.Clients.Group("game").SendAsync("GameStateUpdated", gameState);
+
+        foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
+        {
+            var playerState = GameState.PlayerStatePackager(p.PlayerID);
+            await hubContext.Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+        }
+    }
+
+    return Results.Json(result);
 });
-*/
 
 app.Run();
 
@@ -324,6 +345,106 @@ public static class Globals
 }
 
 public record PlayerRegistrationRequest(string Username, Guid? ExistingGuid);
+
+/*
+
+*/
+public class GameHub : Hub
+{
+    public override async Task OnConnectedAsync()
+    {
+        var guid = Context.GetHttpContext()?.Request.Query["guid"];
+        Console.WriteLine($"[SIGNALR] Client connected: {Context.ConnectionId}, GUID: {guid}");
+        await base.OnConnectedAsync();
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        Console.WriteLine($"[SIGNALR] Client disconnected: {Context.ConnectionId}");
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    public async Task JoinRoom(string guid)
+    {
+        var player = GameState.GetPlayers()
+            .FirstOrDefault(p => p.GUID.ToString() == guid);
+
+        if (player == null)
+        {
+            await Clients.Caller.SendAsync("Error", "[ERROR] Player not found");
+            return;
+        }
+
+        player.ConnectionId = Context.ConnectionId;
+        player.IsConnected = true;
+        player.LastSeen = DateTime.UtcNow;
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, "game");
+        Console.WriteLine($"[SIGNALR] {player.Username} joined room!");
+
+        await Clients.Group("game").SendAsync("PlayerJoined", player.Username);
+    }
+    public async Task PlayerMove(string guid, int moveType, string moveDataJson)
+    {
+        var player = GameState.GetPlayers()
+            .FirstOrDefault(p => p.GUID.ToString() == guid);
+
+        if (player == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Player not found");
+            return;
+        }
+
+        Console.WriteLine($"[MOVE] {player.Username}: {moveType}");
+
+        try
+        {
+            var moveData = DeserializeMoveData(moveType, moveDataJson);
+            var result = GameState.ProcessMove(player, moveType, moveData);
+
+            if (!result.Success)
+            {
+                await Clients.Caller.SendAsync("MoveRejected", result.Error);
+                return;
+            }
+
+            // Broadcast shared game state to everyone
+            var gameState = GameState.GameStatePackager();
+            await Clients.Group("game").SendAsync("GameStateUpdated", gameState);
+
+            // Push each player's private state only to them
+            foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
+            {
+                var playerState = GameState.PlayerStatePackager(p.PlayerID);
+                await Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            await Clients.Caller.SendAsync("MoveRejected", ex.Message);
+            return;
+        }
+        
+    }
+
+    private object DeserializeMoveData(int moveType, string moveDataJson)
+    {
+        return moveType switch
+        {
+            0 => JsonSerializer.Deserialize<GameState.PlaceSettlementData>(moveDataJson)
+                    ?? throw new ArgumentException("Invalid JSON for PlaceSettlementData"),
+            1 => JsonSerializer.Deserialize<GameState.PlaceCityData>(moveDataJson)
+                    ?? throw new ArgumentException("Invalid JSON for PlaceCityData"),
+            2 => JsonSerializer.Deserialize<GameState.PlaceRoadData>(moveDataJson)
+                    ?? throw new ArgumentException("Invalid JSON for PlaceRoadData"),
+            3 => JsonSerializer.Deserialize<GameState.DevCardBuyData>(moveDataJson)
+                    ?? throw new ArgumentException("Invalid JSON for DevCardBuyData"),
+            4 => JsonSerializer.Deserialize<GameState.PlayDevCardData>(moveDataJson)
+                    ?? throw new ArgumentException("Invalid JSON for PlayDevCardData"),
+            _ => throw new ArgumentException($"Unknown move type: {moveType}")
+        };
+    }
+}
 
 /*
 This is going to be the handler for the API when the actual game begins
@@ -501,6 +622,73 @@ public static class GameState
         return false;
     }
     */
+
+    // Purchase type ID: 0 = settlement, 1 = city, 2 = road, 3 = development card
+    /*
+    This Code Chunk contains the utilities
+    ==================================================================================================================================================================================================================================================================
+    Constructors are:
+     - public static bool CheckResources(int PlayerID, int purchaseType)
+    ==================================================================================================================================================================================================================================================================
+    */
+    public static bool CheckResources(int PlayerID, int purchaseType)
+    {
+        switch (purchaseType)
+        {
+            case 0: // settlement
+                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1 && Players[PlayerID].Sheep >= 1)
+                {
+                    Players[PlayerID].Wheat -= 1;
+                    Players[PlayerID].Bricks -= 1;
+                    Players[PlayerID].Wood -= 1;
+                    Players[PlayerID].Sheep -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+            
+            case 1: // city
+                if (Players[PlayerID].Wheat >= 2 && Players[PlayerID].Ore >= 3)
+                {
+                    Players[PlayerID].Wheat -= 2;
+                    Players[PlayerID].Ore -= 3;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+
+            case 2: // road
+                if (Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1)
+                {
+                    Players[PlayerID].Bricks -= 1;
+                    Players[PlayerID].Wood -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+
+            case 3: // development card
+                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Ore >= 1 && Players[PlayerID].Sheep >= 1)
+                {
+                    Players[PlayerID].Wheat -= 1;
+                    Players[PlayerID].Ore -= 1;
+                    Players[PlayerID].Sheep -= 1;
+                    return true;
+                } 
+                else
+                {
+                    return false;
+                }
+            
+        }
+        return false;
+    }
 
     /*
     This Code Chunk contains the logic (unbundled methods, bundled for api).
@@ -829,8 +1017,8 @@ public static class GameState
         {
             for (int j = 0; j < xSize; j++)
             {
-                double[] hexY = { i + 0.5, i + 0.5, i,     i,     i + 1, i + 1  };
-                int[]    hexX = { j,       j + 1,   j,     j + 1, j,     j + 1  };
+                double[] hexY = { i + 0.5, i + 0.5, i, i, i + 1, i + 1 };
+                int[] hexX = { j, j + 1, j, j + 1, j, j + 1 };
 
                 for (int edgeIdx = 0; edgeIdx < 6; edgeIdx++)
                 {
@@ -887,6 +1075,9 @@ public static class GameState
     private static int _currentPlayerIndex = 0;
 
     public static Player CurrentPlayer => Players[_currentPlayerIndex];
+
+    private static bool _snakingBack = false;
+
     public class PlaceSettlementData
     {
         public int PlayerID { get; set; }
@@ -933,12 +1124,75 @@ public static class GameState
         public int DevelopmentCardID { get; set; }
     }
 
+    public class EndTurnData
+    {
+        public int PlayerID { get; set; }
+    }
+
+    public class BoatTradeData
+    {
+        public int PlayerID { get; set; }
+        public int TradeData { get; set; }
+    }
+
+    public class MoveRobber // needs case
+    {
+        public int PlayerID { get; set; }
+        public int XRobber { get; set; }
+        public double YRobber { get; set; }
+    }
+
+    public class StealResource // needs case
+    {
+        public int PlayerID { get; set; }
+        public int VictimID { get; set; }
+    }
+
+    public class OfferTrade // needs case
+    {
+        public int PlayerID { get; set; }
+        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+    }
+
+    public class AcceptTrade // needs case
+    {
+        public int PlayerID { get; set; }
+        public Guid tradeOfferID { get; set; }
+    }
+
+    public class RejectTrade // needs case
+    {
+        public int PlayerID { get; set; }
+        public Guid tradeOfferID { get; set; }
+    }
+
+    public class CounterTrade // needs case
+    {
+        public int PlayerID { get; set; }
+        public Guid tradeOfferID { get; set; }
+        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+    }
+
+    public class DiscardResources // needs case
+    {
+        public int PlayerID { get; set; }
+        public int Resources { get; set; } // AABBCCDDEE wheat, brick, etc
+    }
+
+    public class ChatMessage // needs case
+    {
+        public int PlayerID { get; set; }
+        public string message { get; set; }
+        public Guid messageID { get; set; }
+    }
+
     public static MoveResult ProcessMove(Player player, int moveType, object moveData)
     {
         if (CurrentPlayer.PlayerID != player.PlayerID)
-            return new MoveResult { Success = false, Error = "Not your turn" };
+            return new MoveResult { Success = false, Error = "[ERROR] Not your turn" };
 
-        
         switch (moveType)
         {
             case 0: // PlaceSettlement(int playerID, int xSettlement, double ySettlement, bool startPhase)
@@ -966,23 +1220,23 @@ public static class GameState
                     var data = moveData as PlayDevCardData;
                     return PlayDevelopmentCard(data.PlayerID, data.XRoad11, data.YRoad11, data.XRoad12, data.YRoad12, data.XRoad21, data.YRoad21, data.XRoad22, data.YRoad22, data.Monopoly, data.YearOfPlenty1, data.YearOfPlenty2, data.DevelopmentCardID);
                 }
+            case 5: // EndTurn(int playerID)
+                {
+                    var data = moveData as EndTurnData;
+                    return EndTurn(data.PlayerID);
+                }
+            case 6: // public static MoveResult BoatTrade(int playerID, int tradeData)
+                {
+                    var data = moveData as BoatTradeData;
+                    return BoatTrade(data.PlayerID, data.TradeData);
+                }
             default:
                 {
                     return new MoveResult{ Success = false, Error = "[ERROR] unknown move!"};
                 }
         }
-    }
-    private static MoveResult HandlePlaceRoad(Player player, object moveData)
-    {
-        return new MoveResult { Success = true, EventType = "RoadPlaced" };
-    }
 
-    private static MoveResult HandleEndTurn(Player player)
-    {
-        int _pastPlayerIndex = _currentPlayerIndex;
-        _currentPlayerIndex = (_currentPlayerIndex + 1) % Players.Count; // iterates player, check math in case
-        Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
-        return new MoveResult { Success = true, EventType = "TurnEnded" };
+        // if (CheckWinCondition)
     }
 
     /*
@@ -1250,71 +1504,101 @@ public static class GameState
         }
     }
 
-    // Purchase type ID: 0 = settlement, 1 = city, 2 = road, 3 = development card
-    public static bool CheckResources(int PlayerID, int purchaseType)
+    
+
+    private static MoveResult EndTurn(int playerID)
     {
-        switch (purchaseType)
+        if (Globals.GameVars.StartPhase)
         {
-            case 0: // settlement
-                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1 && Players[PlayerID].Sheep >= 1)
-                {
-                    Players[PlayerID].Wheat -= 1;
-                    Players[PlayerID].Bricks -= 1;
-                    Players[PlayerID].Wood -= 1;
-                    Players[PlayerID].Sheep -= 1;
-                    return true;
-                } 
-                else
-                {
-                    return false;
-                }
-            
-            case 1: // city
-                if (Players[PlayerID].Wheat >= 2 && Players[PlayerID].Ore >= 3)
-                {
-                    Players[PlayerID].Wheat -= 2;
-                    Players[PlayerID].Ore -= 3;
-                    return true;
-                } 
-                else
-                {
-                    return false;
-                }
+            int _pastPlayerIndex = _currentPlayerIndex;
 
-            case 2: // road
-                if (Players[PlayerID].Bricks >= 1 && Players[PlayerID].Wood >= 1)
-                {
-                    Players[PlayerID].Bricks -= 1;
-                    Players[PlayerID].Wood -= 1;
-                    return true;
-                } 
-                else
-                {
-                    return false;
-                }
+            if (_currentPlayerIndex < Players.Count - 1 && !_snakingBack)
+                _currentPlayerIndex++;
+            else if (_currentPlayerIndex > 0 && _snakingBack)
+                _currentPlayerIndex--;
+            else if (_currentPlayerIndex == Players.Count - 1)
+                _snakingBack = true;
+            else if (_currentPlayerIndex == 0 && _snakingBack)
+                Globals.GameVars.StartPhase = false; // snake complete, begin normal play
 
-            case 3: // development card
-                if (Players[PlayerID].Wheat >= 1 && Players[PlayerID].Ore >= 1 && Players[PlayerID].Sheep >= 1)
-                {
-                    Players[PlayerID].Wheat -= 1;
-                    Players[PlayerID].Ore -= 1;
-                    Players[PlayerID].Sheep -= 1;
-                    return true;
-                } 
-                else
-                {
-                    return false;
-                }
-            
+            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
+            return new MoveResult { Success = true, EventType = "TurnEnded" };
         }
-        return false;
+        else
+        {
+            int _pastPlayerIndex = _currentPlayerIndex;
+            _currentPlayerIndex = (_currentPlayerIndex + 1) % Players.Count;
+            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
+            ResourceRollPhase();
+            return new MoveResult { Success = true, EventType = "TurnEnded" };
+        }
     }
 
-    public static bool BoatTradeHandler(int PlayerID, int GiveResourceID, int ReceiveResourceID)
+
+    /*
+    { 0, 3 to 1 },
+    { 1, "Wheat" },
+    { 2, "Brick" },
+    { 3, "Ore" },
+    { 4, "Wood" },
+    { 5, "Sheep" }
+    */
+    public static MoveResult BoatTrade(int playerID, int tradeData)
     {
-        // Boat trade logic goes here
-        return true;
+        var Settlements = Players[playerID].Settlements;
+        var Cities = Players[playerID].Cities;
+        foreach (var boatConnection in BoatConnections)
+        {
+            foreach (var settlement in Settlements)
+            {
+                if (settlement.x == boatConnection.Key.x && settlement.y == boatConnection.Key.y)
+                {
+                    if (tradeData == BoatConnections[(boatConnection.Key.x, boatConnection.Key.y)])
+                    {
+                        return new MoveResult { Success = true, EventType = "TradeCompleted" };
+                    } 
+                }
+            }
+            foreach (var city in Cities)
+            {
+                if (city.x == boatConnection.Key.x && city.y == boatConnection.Key.y)
+                {
+                    if (tradeData == BoatConnections[(boatConnection.Key.x, boatConnection.Key.y)])
+                    {
+                        return new MoveResult { Success = true, EventType = "TradeCompleted" };
+                    } 
+                }
+            }
+        }
+        return new MoveResult {Success = false, Error = "[ERROR] you purchase this"};
     }
+
+    /*
+    public class MoveRobber // needs case
+    {
+        public int PlayerID { get; set; }
+        public int XRobber { get; set; }
+        public double YRobber { get; set; }
+    }
+    */
+    public static MoveResult MoveRobberPlayerIn(int PlayerID, int XRobber, double YRobber)
+    {
+        return new MoveResult {Success = false, Error = "[ERROR] Method not implemented"};
+    }
+
+    /*
+    public class StealResource // needs case
+    {
+        public int PlayerID { get; set; }
+        public int VictimID { get; set; }
+    }
+    */
+    public static MoveResult StealResourcePlayerIn(int PlayerID, int VictimID)
+    {
+        return new MoveResult {Success = false, Error = "[ERROR] Method not implemented"};
+    }
+
+    
 
     /*
     This code chunk will handle all Development Card logic
@@ -1352,7 +1636,7 @@ public static class GameState
             {
                 case 1: // Knight
                     var playerInput = GetPlayerRobberInput();
-                    MoveRobber(playerInput[0].x, playerInput[0].y);
+                    MoveRobberAction(playerInput[0].x, playerInput[0].y);
                     Players[PlayerID].KnightsPlayed++;
                     break;
                 case 2: // Monopoly
@@ -1987,7 +2271,7 @@ public static class GameState
         RobberCoords[(startX, startY)] = true;
     }
     
-    public static void MoveRobber(int newX, double newY)
+    public static void MoveRobberAction(int newX, double newY)
     {
         foreach (var key in RobberCoords.Keys.ToList())
         {
@@ -2349,4 +2633,29 @@ app.MapGet("/host", () =>
             Console.WriteLine("Error: No valid action selected");
         }
     }   
+    */
+
+
+    /*
+    app.MapPost("/start", (Guid guid) =>
+    {
+        GameState.RequestStartGame(guid);
+        Console.WriteLine("[GAME] Game Started!");
+        return Results.Ok();
+    });
+    */
+
+    /*
+    This is the security for testing on a local device
+    */
+    /*
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend", policy =>
+        {
+            policy.WithOrigins("http://localhost:8082")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    });
     */
