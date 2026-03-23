@@ -1,10 +1,12 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
 import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
 import PanZoomView from "./PanZoomView";
 import DevCardOverlay from "./DevCardOverlay";
+import { usePlayer } from "./PlayerContext";
+import useGameHub from "./useGameHub";
 
 const BASE_HEX_SIZE = 60;
 const MAP_DEFAULTS = {
@@ -13,15 +15,42 @@ const MAP_DEFAULTS = {
   9: { scalar: 1.45, roadWidth: 8  },
 };
 
-const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
-
 export default function MainGameScreen({route}) {
+  const { playerNumber, serverUrl, guid } = usePlayer();
+  const [gameState, setGameState]     = useState(route.params?.gameState);
+  const [playerState, setPlayerState] = useState(route.params?.playerState);
+
+  useGameHub(
+    serverUrl,
+    guid,
+    (newGameState) => {
+      console.log("[SIGNALR] MainGameScreen: game state update received");
+      setGameState(newGameState);
+    },
+    (newPlayerState) => {
+      console.log("[SIGNALR] MainGameScreen: player state update received");
+      setPlayerState(newPlayerState);
+    },
+    (username) => {
+      console.log(`[SIGNALR] ${username} joined`);
+    }
+  );
+
+  const MAP_SIZE = Number(gameState?.mapSizejson);
+
+  if (!gameState || !MAP_DEFAULTS[MAP_SIZE]) {
+    return <View style={{ flex: 1, backgroundColor: "#090d18" }} />;
+  }
+  
   /*
   Data from server setters
   */
-  const gameState = route.params?.gameState;
-  const MAP_SIZE = Number(gameState?.mapSizejson);
-  const defaults = MAP_DEFAULTS[MAP_SIZE];
+  const hubConnection = route.params?.hubConnection;
+
+  if (!gameState || !MAP_DEFAULTS[MAP_SIZE]) {
+    return <View style={{ flex: 1, backgroundColor: "#090d18" }} />;
+  }
+
   const hexData = gameState?.resourcemapjson ?? [];
   const hexRollData = gameState?.resourcerollsjson ?? [];
   const edgeData = gameState?.edgedatajson ?? [];
@@ -29,18 +58,18 @@ export default function MainGameScreen({route}) {
   const robberHex = gameState?.robberhexjson ?? -1;
   const vertexData = gameState?.nodegraphjson ?? [];
   const resourceData = [0, 0, 0, 0, 0];
-  const playerNumber = -1;
-  const playerTurn = -1;
-  const isBuildingRoad = false;
-  const roadSelectorVisible = false;
-  const playerState = route.params?.playerState;
   const devCards = playerState?.playerDevCardsjson ?? [];
   const playerPoints = playerState?.playerPoints ?? 0;
+  const playerTurn   = gameState?.currentPlayerIndex ?? -1;
+  const isPlayerTurn = playerTurn === playerNumber;
+  const isBuildingRoad = false;
+  const roadSelectorVisible = false;
 
   /*
   Map size/aestetics
   */
   // GENERAL //
+  const defaults  = MAP_DEFAULTS[MAP_SIZE];
   const SCALAR = defaults.scalar;
   const HEX_SIZE = BASE_HEX_SIZE * SCALAR;
   const HEX_WIDTH = HEX_SIZE;
@@ -68,50 +97,96 @@ export default function MainGameScreen({route}) {
     VERTEX_V_SHIFT,
   };
 
+  const handleEndTurn = async () => {
+    if (!isPlayerTurn || !serverUrl) return;
+    try {
+      const moveData = JSON.stringify({ PlayerID: playerNumber });
+      const url = `${serverUrl}/processMove?guid=${guid}&moveType=5&moveDataJson=${encodeURIComponent(moveData)}`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      if (!json.success) console.warn("[END TURN] Rejected:", json.error);
+    } catch (err) {
+      console.error("[END TURN] Fetch error:", err);
+    }
+  };
+
+
   ///// *1 //////
 
   return (
-    <View style={styles.container}>
-      <PanZoomView>
-        <View style={styles.gridContainer}>
-          <HexGridScreen
-            hexData={hexData}
-            edgeData={edgeData}
-            hexRollData={hexRollData}
-            robberHex={robberHex}
-            roadSelectorVisible={roadSelectorVisible}
-            playerTurn={playerTurn}
-            playerNumber={playerNumber}
-            isBuildingRoad={isBuildingRoad}
-            mapConfig={mapConfig}
-          />
-          <VertexLayer
-            vertexData={vertexData}
-            boatData={boatData}
-            mapConfig={mapConfig}
-            onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
-          />
-        </View>
-      </PanZoomView>
-      <ResourceOverlay resources={resourceData} />
-      <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
-    </View>
-  );
-}
+      <View style={styles.container}>
+        <PanZoomView>
+          <View style={styles.gridContainer}>
+            <HexGridScreen
+              hexData={hexData}
+              edgeData={edgeData}
+              hexRollData={hexRollData}
+              robberHex={robberHex}
+              roadSelectorVisible={roadSelectorVisible}
+              playerTurn={playerTurn}
+              playerNumber={playerNumber}
+              isBuildingRoad={isBuildingRoad}
+              mapConfig={mapConfig}
+            />
+            <VertexLayer
+              vertexData={vertexData}
+              boatData={boatData}
+              mapConfig={mapConfig}
+              isPlayerTurn={isPlayerTurn}
+              onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
+            />
+          </View>
+        </PanZoomView>
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#090d18",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gridContainer: {
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
+        <ResourceOverlay resources={resourceData} />
+        <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
+
+        {isPlayerTurn && (
+          <TouchableOpacity
+            style={styles.endTurnButton}
+            onPress={handleEndTurn}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.endTurnText}>End Turn</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: "#090d18",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    gridContainer: {
+      position: "relative",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    endTurnButton: {
+      position: "absolute",
+      bottom: 32,
+      right: 24,
+      backgroundColor: "#3b82f6",
+      paddingHorizontal: 28,
+      paddingVertical: 14,
+      borderRadius: 12,
+      elevation: 6,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+    },
+    endTurnText: {
+      color: "#fff",
+      fontSize: 16,
+      fontWeight: "600",
+      letterSpacing: 0.5,
+    },
+  });
 
 
 ////// *1 //////

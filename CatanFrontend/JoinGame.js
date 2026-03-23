@@ -4,9 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePlayer } from "./PlayerContext";
 
 export default function JoinGame({ navigation }) {
-  const [serverUrl, setServerUrl] = useState("");
   const [status, setStatus] = useState("");
-  const { username, guid, setGuid } = usePlayer();
+  const { username, guid, setGuid, setServerUrl, setPlayerNumber, serverUrl } = usePlayer();
 
   useEffect(() => {
     const loadStored = async () => {
@@ -43,6 +42,8 @@ export default function JoinGame({ navigation }) {
       await AsyncStorage.setItem("lastServerUrl", serverUrl);
 
       setGuid(data.guid);
+      setServerUrl(serverUrl);
+      setPlayerNumber(data.playerId);
 
       if (data.reconnected) {
         setStatus("[CONNECTION] Reconnected to existing session!");
@@ -66,7 +67,7 @@ export default function JoinGame({ navigation }) {
         style={styles.input}
         placeholder="Paste Host Server URL"
         placeholderTextColor="#94a3b8"
-        value={serverUrl}
+        value={serverUrl ?? ""}
         onChangeText={setServerUrl}
         autoCapitalize="none"
         autoCorrect={false}

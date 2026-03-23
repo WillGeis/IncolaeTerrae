@@ -4,7 +4,7 @@ import { usePlayer } from "./PlayerContext";
 
 export default function HostWaitingScreen({ route, navigation }) {
   const { hostConfig } = route.params;
-  const { setGuid } = usePlayer();
+  const { setGuid, setServerUrl, setPlayerNumber } = usePlayer();
   const [status, setStatus] = useState("Starting server...");
 
   useEffect(() => {
@@ -34,6 +34,8 @@ export default function HostWaitingScreen({ route, navigation }) {
         }
 
         setGuid(data.playerGUID);
+        setServerUrl(data.serverIP);
+        setPlayerNumber(0);
 
         setStatus("Server online. Waiting for players...");
 

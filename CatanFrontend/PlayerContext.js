@@ -7,10 +7,11 @@ export function PlayerProvider({ children }) {
   const [guid, setGuid] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [playerNumber, setPlayerNumber] = useState(-1);
+  const [serverUrl, setServerUrl] = useState(null);
 
   return (
     <PlayerContext.Provider
-      value={{ username, setUsername, guid, setGuid, isHost, setIsHost, playerNumber, setPlayerNumber }}
+      value={{ username, setUsername, guid, setGuid, isHost, setIsHost, playerNumber, setPlayerNumber, serverUrl, setServerUrl }}
     >
       {children}
     </PlayerContext.Provider>

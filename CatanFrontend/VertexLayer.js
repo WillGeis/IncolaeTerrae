@@ -69,7 +69,7 @@ function getVertexScreenPos(rowIndex, colIndex, vertexData, xSpacing, oddRowOffs
   return { x, y: y + (HEX_SIZE * 0.11) };
 }
 
-export default function VertexLayer({ vertexData, boatData, mapConfig, onPressVertex }) {
+export default function VertexLayer({ vertexData, boatData, mapConfig, isPlayerTurn, onPressVertex }) {
   const {
     HEX_SIZE,
     VERTEX_X_SPACING: xSpacing,
@@ -93,7 +93,14 @@ export default function VertexLayer({ vertexData, boatData, mapConfig, onPressVe
       const [col1, row1, col2, row2, resourceType] = boat;
 
       if (
-        row1 >= vertexData.length || row2 >= vertexData.length ||
+        row1 < 0 || row2 < 0 || col1 < 0 || col2 < 0
+      ) return null;
+
+      if (
+        row1 >= vertexData.length || row2 >= vertexData.length
+      ) return null;
+
+      if (
         col1 >= vertexData[row1].length || col2 >= vertexData[row2].length
       ) return null;
 
@@ -168,23 +175,32 @@ export default function VertexLayer({ vertexData, boatData, mapConfig, onPressVe
             {row.map((value, colIndex) => {
               if (value === undefined || value === null) return null;
 
-              const x = colIndex * xSpacing;
-              const dotColor = value >= 0 ? playerColors[value] : "#94a3b8";
+              const x        = colIndex * xSpacing;
+              const isVacant = value === -1;
+
+              const dotColor = isVacant
+                ? (isPlayerTurn ? "#94a3b8" : "rgba(148,163,184,0.2)")
+                : playerColors[value];
+
+              const dotSize = isVacant && isPlayerTurn
+                ? HEX_SIZE * 0.26
+                : HEX_SIZE * 0.22;
 
               return (
                 <Pressable
                   key={colIndex}
-                  onPress={() => onPressVertex(rowIndex, colIndex)}
+                  onPress={() => isPlayerTurn && onPressVertex(rowIndex, colIndex)}
+                  disabled={!isPlayerTurn && isVacant}
                   style={{
                     position: "absolute",
                     left: x,
                     top: 0,
-                    width: HEX_SIZE * 0.22,
-                    height: HEX_SIZE * 0.22,
-                    borderRadius: HEX_SIZE * 0.15,
+                    width: dotSize,
+                    height: dotSize,
+                    borderRadius: dotSize * 0.7,
                     backgroundColor: dotColor,
-                    borderWidth: value >= 0 ? 2 : 0,
-                    borderColor: value >= 0 ? "#fff" : "transparent",
+                    borderWidth: !isVacant ? 2 : (isPlayerTurn ? 1.5 : 0),
+                    borderColor: !isVacant ? "#fff" : "rgba(255,255,255,0.45)",
                     zIndex: 10,
                   }}
                 />

@@ -2,14 +2,13 @@ import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 import { usePlayer } from "./PlayerContext";
 
-const API_BASE = "http://localhost:5082";
-
 export default function LoadingScreenMain({ navigation }) {
   const spinAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const { guid } = usePlayer();
+  const { guid, playerNumber, serverUrl } = usePlayer();
 
   useEffect(() => {
+    const API_BASE = serverUrl ?? "http://localhost:5082";
     // Spin animation SWAP WITH MORE FUN THING LATER
     Animated.loop(
       Animated.timing(spinAnim, {

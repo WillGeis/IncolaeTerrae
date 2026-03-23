@@ -121,6 +121,13 @@ async Task StartCloudflareTunnelAsync()
 
 _ = StartCloudflareTunnelAsync(); // entrypoint for cloudflared
 
+app.MapMethods("/{**path}", new[] { "OPTIONS" }, (HttpContext ctx) =>
+{
+    ctx.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+    ctx.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    ctx.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+    return Results.Ok();
+});
 
 // BELOW IS API CALLS
 app.MapGet("/server-info", () =>
@@ -255,9 +262,19 @@ app.MapGet("/players", () =>
     return Results.Json(players);
 });
 
-app.MapPost("/startGame", () =>
+app.MapPost("/startGame", async (HttpContext http) =>
 {
     GameState.StartGame();
+    var hubContext = http.RequestServices.GetRequiredService<IHubContext<GameHub>>();
+
+    var gameState = GameState.GameStateObject();
+    await hubContext.Clients.Group("game").SendAsync("GameStateUpdated", gameState);
+    foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
+    {
+        var playerState = GameState.PlayerStateObject(p.PlayerID);
+        await hubContext.Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+    }
+
     return Results.Ok(new { success = true, message = "Game started!" });
 });
 
@@ -299,20 +316,30 @@ app.MapGet("/processMove", async (HttpContext http, string guid, int moveType, s
 
     var result = GameState.ProcessMove(player, moveType, moveData);
 
-    if (result.Success)
-    {
-        var gameState = GameState.GameStatePackager();
-        await hubContext.Clients.Group("game").SendAsync("GameStateUpdated", gameState);
-
-        foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
-        {
-            var playerState = GameState.PlayerStatePackager(p.PlayerID);
-            await hubContext.Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
-        }
-    }
+    if (result.Success) await BroadcastGameUpdate(hubContext);
 
     return Results.Json(result);
 });
+
+async Task BroadcastGameUpdate(IHubContext<GameHub> hubContext)
+{
+    var gameState = GameState.GameStateObject();
+
+    await hubContext.Clients.Group("game").SendAsync("GameStateUpdated", gameState);
+
+    foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
+    {
+        var playerState = GameState.PlayerStateObject(p.PlayerID);
+        await hubContext.Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+    }
+
+    var winner = GameState.GetWinner();
+    if (winner.HasValue)
+    {
+        await hubContext.Clients.Group("game").SendAsync("GameOver", new { winnerPlayerID = winner.Value });
+        Console.WriteLine($"[GAME] Player {winner.Value} has won!");
+    }
+}
 
 app.Run();
 
@@ -391,7 +418,7 @@ public class GameHub : Hub
 
         if (player == null)
         {
-            await Clients.Caller.SendAsync("Error", "Player not found");
+            await Clients.Caller.SendAsync("Error", "[ERROR] Player not found");
             return;
         }
 
@@ -407,17 +434,30 @@ public class GameHub : Hub
                 await Clients.Caller.SendAsync("MoveRejected", result.Error);
                 return;
             }
+            try
+            {            
+                var gameState = GameState.GameStateObject();
+                await Clients.Group("game").SendAsync("GameStateUpdated", gameState);
 
-            // Broadcast shared game state to everyone
-            var gameState = GameState.GameStatePackager();
-            await Clients.Group("game").SendAsync("GameStateUpdated", gameState);
-
-            // Push each player's private state only to them
-            foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
-            {
-                var playerState = GameState.PlayerStatePackager(p.PlayerID);
-                await Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+                foreach (var p in GameState.GetPlayers().Where(p => p.IsConnected))
+                {
+                    var playerState = GameState.PlayerStateObject(p.PlayerID);
+                    await Clients.Client(p.ConnectionId).SendAsync("PlayerStateUpdated", playerState);
+                }
+                var winner = GameState.GetWinner();
+                if (winner.HasValue)
+                {
+                    await Clients.Group("game").SendAsync("GameOver", new { winnerPlayerID = winner.Value });
+                    Console.WriteLine($"[GAME] Player {winner.Value} has won!");
+                }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Broadcast failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] Stack: {ex.StackTrace}");
+                await Clients.Caller.SendAsync("Error", $"Broadcast error: {ex.Message}");
+            }
+
         }
         catch (ArgumentException ex)
         {
@@ -538,6 +578,17 @@ public static class GameState
      - GameStarted: bool that is kinda the be all end all.
     ==================================================================================================================================================================================================================================================================
     */
+
+    public static int? GetWinner()
+    {
+        foreach (var player in Players)
+        {
+            int points = player.Settlements.Count + player.Cities.Count * 2 + (player.HasLargestArmy ? 2 : 0) + (player.HasLongestRoad ? 2 : 0) + player.ExtraPoints;
+
+            if (points >= Globals.GameVars.WinPoints) return player.PlayerID;
+        }
+        return null;
+    }
 
 
     /*
@@ -697,6 +748,48 @@ public static class GameState
      - None, no constructors.
     ==================================================================================================================================================================================================================================================================
     */
+    public static object GameStateObject()
+    {
+        Console.WriteLine("[DEBUG] Packaging resource map...");
+        var (resourceMap, resourceRolls) = PackageResourceMap();
+        Console.WriteLine("[DEBUG] Packaging node data...");
+        var nodeGraph = PackageNodeData();
+        Console.WriteLine("[DEBUG] Packaging robber hex...");
+        var robberHex = PackageRobberHex();
+        Console.WriteLine("[DEBUG] Packaging boat data...");
+        var boatData = PackageBoatData();
+        Console.WriteLine("[DEBUG] Packaging edge data...");
+        var edgeData = PackageEdgeData();
+        Console.WriteLine("[DEBUG] Packaging win condition...");
+        var winCondition = PackageWinCondition();
+        Console.WriteLine("[DEBUG] All packaging complete.");
+        return new
+        {
+            resourcemapjson    = resourceMap,
+            resourcerollsjson  = resourceRolls,
+            robberhexjson      = PackageRobberHex(),
+            nodegraphjson      = PackageNodeData(),
+            boatdatajson       = PackageBoatData(),
+            edgedatajson       = PackageEdgeData(),
+            winConditionjson   = PackageWinCondition(),
+            mapSizejson        = MapSizeGlobal,
+            currentPlayerIndex = _currentPlayerIndex,
+        };
+    }
+
+    public static object PlayerStateObject(int playerID)
+    {
+        return new
+        {
+            playerDevCardsjson = PackagePlayerDevCards(playerID),
+            playerResourcesjson = PackagePlayerResources(playerID),
+            playerPoints = Players[playerID].Settlements.Count
+                + Players[playerID].Cities.Count * 2
+                + (Players[playerID].HasLargestArmy ? 2 : 0)
+                + (Players[playerID].HasLongestRoad ? 2 : 0),
+        };
+    }
+    
     public static IResult GameStatePackager()
     {
         /*
@@ -706,25 +799,7 @@ public static class GameState
         */
         try
         {
-            var (resourceMap, resourceRolls) = PackageResourceMap();
-            var nodeGraph = PackageNodeData();
-            var robberHex = PackageRobberHex();
-            var boatData = PackageBoatData();
-            var edgeData = PackageEdgeData();
-            var winCondition = PackageWinCondition();
-            var mapSize = MapSizeGlobal;
-
-            return Results.Json(new
-            {
-                resourcemapjson = resourceMap,
-                resourcerollsjson = resourceRolls,
-                robberhexjson = robberHex,
-                nodegraphjson = nodeGraph,
-                boatdatajson = boatData,
-                edgedatajson = edgeData,
-                winConditionjson = winCondition,
-                mapSizejson = mapSize,
-            });
+            return Results.Json(GameStateObject());
         }
         catch (InvalidOperationException ex)
         {
@@ -961,8 +1036,20 @@ public static class GameState
             int node1Key = i * spacing;
             int node2Key = i * spacing + 1;
 
+            if (!PerimeterNodes.ContainsKey(node1Key) || !PerimeterNodes.ContainsKey(node2Key))
+            {
+                boatData[i] = new int[] { -1, -1, -1, -1, -1 };
+                continue;
+            }
+
             var (x1, y1) = PerimeterNodes[node1Key];
             var (x2, y2) = PerimeterNodes[node2Key];
+
+            if (!BoatConnections.ContainsKey((x1, y1)))
+            {
+                boatData[i] = new int[] { -1, -1, -1, -1, -1 };
+                continue;
+            }
 
             int resourceType = BoatConnections[(x1, y1)];
 
@@ -1274,7 +1361,9 @@ public static class GameState
         ResourceDirectoryStarter();
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
+        Console.WriteLine($"[DEBUG] PerimeterNodes: {PerimeterNodes.Count}, BoatConnections: {BoatConnections.Count}, totalBoats expected: {MapSizeGlobal * 2}");
         Console.WriteLine("[GAMESTATE] Game Startup Phase completed successfully");
+        GameStarted = true;
         return true;
     }
 
@@ -2291,8 +2380,16 @@ public static class GameState
 
 public class Edge
 {
-    public int RoadPlayerID { get; set; }   // -1 is default, so no road
-    public (int x, double y) ConnectedNode { get; set; }
+    public int RoadPlayerID { get; set; } = -1;
+    public int ConnectedNodeX { get; set; }
+    public double ConnectedNodeY { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public (int x, double y) ConnectedNode
+    {
+        get => (ConnectedNodeX, ConnectedNodeY);
+        set { ConnectedNodeX = value.x; ConnectedNodeY = value.y; }
+    }
 }
 
 public class Node

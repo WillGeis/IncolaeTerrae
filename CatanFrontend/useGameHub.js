@@ -17,11 +17,11 @@ export default function useGameHub(serverUrl, playerGUID, onGameStateUpdated, on
         .withAutomaticReconnect()
         .build();
 
-      connection.on("GameStateUpdated", (gameState) => { console.log("[SIGNALR] Game state updated!"); onGameStateUpdated?.(gameState); });
+      connection.on("GameStateUpdated", (gameState) => {console.log("[SIGNALR] Game state updated!", JSON.stringify(gameState)); onGameStateUpdated?.(gameState);});
 
-      connection.on("PlayerJoined", (username) => { console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username); });
+      connection.on("PlayerStateUpdated", (playerState) => { console.log("[SIGNALR] Player state updated!");onPlayerStateUpdated?.(playerState);});
 
-      connection.on("Error", (msg) => { console.error("[SIGNALR] Error:", msg); });
+      connection.on("PlayerJoined", (username) => {console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username);});
 
       await connection.start();
       await connection.invoke("JoinRoom", guid);
