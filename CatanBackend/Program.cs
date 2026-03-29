@@ -817,6 +817,8 @@ public static class GameState
             return Results.Json(new
             {
                 playerDevCardsjson = playerDevCards,
+                playerResourcesjson = playerResources,
+                playerPoints = playerPoints,
             });
         }
         catch (InvalidOperationException ex)

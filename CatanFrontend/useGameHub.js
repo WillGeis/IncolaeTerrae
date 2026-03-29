@@ -2,7 +2,7 @@ import * as signalR from "@microsoft/signalr";
 import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function useGameHub(serverUrl, playerGUID, onGameStateUpdated, onPlayerJoined) {
+export default function useGameHub(serverUrl, playerGUID, onGameStateUpdated, onPlayerStateUpdated, onPlayerJoined) {
   const connectionRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
@@ -17,11 +17,11 @@ export default function useGameHub(serverUrl, playerGUID, onGameStateUpdated, on
         .withAutomaticReconnect()
         .build();
 
-      connection.on("GameStateUpdated", (gameState) => {console.log("[SIGNALR] Game state updated!", JSON.stringify(gameState)); onGameStateUpdated?.(gameState);});
+        connection.on("GameStateUpdated", (gameState) => { console.log("[SIGNALR] Game state updated!", JSON.stringify(gameState)); onGameStateUpdated?.(gameState); });
 
-      connection.on("PlayerStateUpdated", (playerState) => { console.log("[SIGNALR] Player state updated!");onPlayerStateUpdated?.(playerState);});
+        connection.on("PlayerStateUpdated", (playerState) => { console.log("[SIGNALR] Player state updated!", JSON.stringify(playerState)); onPlayerStateUpdated?.(playerState); });
 
-      connection.on("PlayerJoined", (username) => {console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username);});
+        connection.on("PlayerJoined", (username) => { console.log(`[SIGNALR] ${username} joined!`); onPlayerJoined?.(username); });
 
       await connection.start();
       await connection.invoke("JoinRoom", guid);

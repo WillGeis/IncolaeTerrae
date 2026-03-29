@@ -58,7 +58,7 @@ export default function MainGameScreen({route}) {
   const boatData = gameState?.boatdatajson ?? [];
   const robberHex = gameState?.robberhexjson ?? -1;
   const vertexData = gameState?.nodegraphjson ?? [];
-  const resourceData = [0, 0, 0, 0, 0];
+  const resourceData = playerState?.playerResourcesjson ?? [0, 0, 0, 0, 0];
   const devCards = playerState?.playerDevCardsjson ?? [];
   const playerPoints = playerState?.playerPoints ?? 0;
   const playerTurn   = gameState?.currentPlayerIndex ?? -1;
