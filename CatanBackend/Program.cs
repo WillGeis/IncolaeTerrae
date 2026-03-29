@@ -750,19 +750,18 @@ public static class GameState
     */
     public static object GameStateObject()
     {
+        /*
         Console.WriteLine("[DEBUG] Packaging resource map...");
-        var (resourceMap, resourceRolls) = PackageResourceMap();
         Console.WriteLine("[DEBUG] Packaging node data...");
-        var nodeGraph = PackageNodeData();
         Console.WriteLine("[DEBUG] Packaging robber hex...");
-        var robberHex = PackageRobberHex();
         Console.WriteLine("[DEBUG] Packaging boat data...");
-        var boatData = PackageBoatData();
         Console.WriteLine("[DEBUG] Packaging edge data...");
-        var edgeData = PackageEdgeData();
         Console.WriteLine("[DEBUG] Packaging win condition...");
-        var winCondition = PackageWinCondition();
         Console.WriteLine("[DEBUG] All packaging complete.");
+        */
+        
+        var (resourceMap, resourceRolls) = PackageResourceMap();
+
         return new
         {
             resourcemapjson    = resourceMap,
@@ -1285,6 +1284,7 @@ public static class GameState
             case 0: // PlaceSettlement(int playerID, int xSettlement, double ySettlement, bool startPhase)
                 {
                     var data = moveData as PlaceSettlementData;
+                    Console.WriteLine($"[DATA] Settlement placed at ({data.XSettlement}, {data.YSettlement})");
                     return PlaceSettlement(data.PlayerID, data.XSettlement, data.YSettlement);
                 }
             case 1: // PlaceCity(int playerID, int xCity, double yCity, bool startPhase)
@@ -1324,6 +1324,22 @@ public static class GameState
         }
 
         // if (CheckWinCondition)
+    }
+
+    public static void VariousGameChecks()
+    {
+        if (Globals.GameVars.StartPhase)
+        {
+            foreach (var player in Players)
+            {
+                if (player.Settlements.Count >= 2 && player.Roads.Count >= 2)
+                {
+                    Globals.GameVars.StartPhase = false;
+                }
+            }
+        }
+
+        // Add win check logic here
     }
 
     /*
@@ -1597,6 +1613,7 @@ public static class GameState
 
     private static MoveResult EndTurn(int playerID)
     {
+        //Console.WriteLine($"[END TURN DEBUG] playerIndex={_currentPlayerIndex}, snakingBack={_snakingBack}, startPhase={Globals.GameVars.StartPhase}, playerCount={Players.Count}");
         if (Globals.GameVars.StartPhase)
         {
             int _pastPlayerIndex = _currentPlayerIndex;
@@ -1619,6 +1636,7 @@ public static class GameState
             _currentPlayerIndex = (_currentPlayerIndex + 1) % Players.Count;
             Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
             ResourceRollPhase();
+            VariousGameChecks();
             return new MoveResult { Success = true, EventType = "TurnEnded" };
         }
     }

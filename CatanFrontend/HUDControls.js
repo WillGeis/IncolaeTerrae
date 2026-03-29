@@ -2,8 +2,6 @@ import React from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { usePlayer } from "./PlayerContext";
 
-const SERVER_URL = "your-server-url-here";
-
 export default function HUDControls({isPlayerTurn}) {
   const { playerNumber, guid, serverUrl } = usePlayer();
   
@@ -34,7 +32,7 @@ export default function HUDControls({isPlayerTurn}) {
         activeOpacity={0.75}
       >
         <Text style={styles.endTurnText}>
-          {isPlayerTurn ? "End Turn" : "Waiting..."}
+          {isPlayerTurn ? "End Turn ▶" : "Waiting..."}
         </Text>
       </TouchableOpacity>
     </View>
@@ -44,28 +42,36 @@ export default function HUDControls({isPlayerTurn}) {
 const styles = StyleSheet.create({
   hud: {
     position: "absolute",
-    bottom: 32,
-    right: 24,
+    right: 20,
+    top: "50%",
+    transform: [{ translateY: -30 }],
     zIndex: 20,
   },
-  endTurnButton: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-    elevation: 6,
+  button: {
+    backgroundColor: "#972929",
+    padding: 10,
+    borderRadius: 0,
+    width: 200,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  endTurnDisabled: {
-    backgroundColor: "#334155",
+  buttonDisabled: {
+    backgroundColor: "#4a1a1a",
   },
-  endTurnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    letterSpacing: 0.5,
+  buttonPressed: {
+    backgroundColor: "#7a2020",
+  },
+  buttonText: {
+    fontWeight: "bold",
+    fontFamily: "Jersey10",
+    color: "#ffd000",
+    fontSize: 36,
+    textAlign: "center",
+  },
+  buttonTextDisabled: {
+    color: "#7a6000",
   },
 });

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { View, StyleSheet, Pressable, Text } from "react-native";
 import HexGridScreen from "./HexGridScreen";
 import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
@@ -7,6 +7,7 @@ import PanZoomView from "./PanZoomView";
 import DevCardOverlay from "./DevCardOverlay";
 import { usePlayer } from "./PlayerContext";
 import useGameHub from "./useGameHub";
+
 
 const BASE_HEX_SIZE = 60;
 const MAP_DEFAULTS = {
@@ -99,6 +100,7 @@ export default function MainGameScreen({route}) {
 
   const handleEndTurn = async () => {
     if (!isPlayerTurn || !serverUrl) return;
+    console.log("[END TURN] Button pressed by player", playerNumber);
     try {
       const moveData = JSON.stringify({ PlayerID: playerNumber });
       const url = `${serverUrl}/processMove?guid=${guid}&moveType=5&moveDataJson=${encodeURIComponent(moveData)}`;
@@ -134,6 +136,9 @@ export default function MainGameScreen({route}) {
               mapConfig={mapConfig}
               isPlayerTurn={isPlayerTurn}
               onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
+              playerNumber={playerNumber}
+              serverUrl={serverUrl}
+              guid={guid}
             />
           </View>
         </PanZoomView>
@@ -141,15 +146,19 @@ export default function MainGameScreen({route}) {
         <ResourceOverlay resources={resourceData} />
         <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
 
-        {isPlayerTurn && (
-          <TouchableOpacity
-            style={styles.endTurnButton}
-            onPress={handleEndTurn}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.endTurnText}>End Turn</Text>
-          </TouchableOpacity>
-        )}
+        <Pressable
+          style={({ pressed }) => [
+            styles.endTurnButton,
+            !isPlayerTurn && styles.endTurnButtonDisabled,
+            pressed && isPlayerTurn && styles.endTurnButtonPressed,
+          ]}
+          onPress={handleEndTurn}
+          disabled={!isPlayerTurn}
+        >
+          <Text style={[styles.endTurnText, !isPlayerTurn && styles.endTurnTextDisabled]}>
+            {isPlayerTurn ? "End Turn ▶" : "Waiting..."}
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -166,25 +175,36 @@ export default function MainGameScreen({route}) {
       justifyContent: "center",
       alignItems: "center",
     },
-    endTurnButton: {
+      endTurnButton: {
       position: "absolute",
-      bottom: 32,
-      right: 24,
-      backgroundColor: "#3b82f6",
-      paddingHorizontal: 28,
-      paddingVertical: 14,
-      borderRadius: 12,
-      elevation: 6,
+      right: 20,
+      top: "50%",
+      transform: [{ translateY: -30 }],
+      zIndex: 20,
+      backgroundColor: "#972929",
+      padding: 10,
+      width: 200,
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.4,
-      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    endTurnButtonDisabled: {
+      backgroundColor: "#4a1a1a",
+    },
+    endTurnButtonPressed: {
+      backgroundColor: "#7a2020",
     },
     endTurnText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "600",
-      letterSpacing: 0.5,
+      fontWeight: "bold",
+      fontFamily: "Jersey10",
+      color: "#ffd000",
+      fontSize: 36,
+      textAlign: "center",
+    },
+    endTurnTextDisabled: {
+      color: "#7a6000",
     },
   });
 
