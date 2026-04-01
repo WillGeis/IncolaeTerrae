@@ -6,53 +6,7 @@ import NodeBuyScreen from "./NodeBuyScreen";
 const boatColors = ["gray", "blue", "yellow", "red", "green", "white"];
 const playerColors = ["red", "blue", "green", "yellow", "purple", "orange", "cyan", "magenta", "white", "black"];
 
-// DEPRICATED METHOD //
-/*
-function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
-  let xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift;
 
-  switch (MAP_SIZE) {
-    case 5:
-      xSpacing = HEX_WIDTH / .99;
-      oddRowOffset = HEX_HEIGHT / 4.9;
-      evenRowOffset = HEX_HEIGHT / 1.75;
-      horizontalShift = -20;
-      verticalShift = -130;
-      break;
-    case 7:
-      xSpacing = HEX_WIDTH / 1.01;
-      oddRowOffset = HEX_HEIGHT / 5.15;
-      evenRowOffset = HEX_HEIGHT / 1.75;
-      horizontalShift = -20;
-      verticalShift = -140;
-      break;
-    case 9:
-      xSpacing = HEX_WIDTH / 1.01;
-      oddRowOffset = HEX_HEIGHT / 5.15;
-      evenRowOffset = HEX_HEIGHT / 1.75;
-      horizontalShift = -20;
-      verticalShift = -140;
-      break;
-    default:
-      xSpacing = HEX_WIDTH / 1.01;
-      oddRowOffset = HEX_HEIGHT / 5.15;
-      evenRowOffset = HEX_HEIGHT / 1.75;
-      horizontalShift = -20;
-      verticalShift = -140;
-      throw new Error("MapSize unsupported, bugs likely");
-  }
-
-  if (
-    [xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift].some(
-      (v) => v == null
-    )
-  ) {
-    throw new Error("Offsets were not properly initialized!");
-  }
-
-  return { xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift };
-}
-*/
 
 function getVertexScreenPos(rowIndex, colIndex, vertexData, xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift, totalWidth, HEX_SIZE) {
   const y = (() => {

@@ -1,0 +1,552 @@
+========================================================================================================================================================================================================================
+PROGRAM.CS
+========================================================================================================================================================================================================================
+///////////////////////////////////////////////// DEPRICATED CODE KEPT FOR FUTURE REFERENCE //////////////////////////////////////////////////////
+
+// this doesnt need to be here I just use it for testing via the browser
+/*
+app.MapGet("/host", () =>
+{
+    return Results.Ok(new
+    {
+        serverIP = cloudflarePublicUrl ?? "starting"
+    });
+});
+*/
+
+    /*
+    AI GENERATED SERIALIZATION METHODS
+    ==================================================================================================================================================================================================================================================================
+    NO CONSTRUCTORS:
+     - GetResourceMapAsJson: serializes the ResourceMap into a JSON-compatible object
+     - GetNodeGraphAsJson: serializes the NodeGraph into a JSON-compatible object
+     - GetPlayerResourcesAsJson: serializes player resources, used after turn 1
+     - GetNodeGraphAndGetPlayerResources: used in testting because I have not written the frontend
+    ==================================================================================================================================================================================================================================================================
+    */
+    // Server Testing Area
+    /*
+    app.MapGet("/testmap", () =>
+    {
+        //GameState.ResourceDirectoryStarter();
+        //GameState.GenerateNewMaps(1, 5);
+        //GameState.GenerateNodeGraph(1, 5);
+
+        //GameState.Gameloop(2, 1, 5, 1, 10, true);
+
+        //return GameState.GetNodeGraphAsJson();
+        //return GameState.GetResourceMapAsJson();
+
+        //GameState.ResourceDirectoryStarter();
+        //GameState.GenerateNewMaps(1, 5);
+        //GameState.GenerateNodeGraph(1, 5);
+
+        //GameState.TestPlaceSettlements();
+        var rollHistory =
+            new List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>>();
+
+        for (int i = 0; i < 3; i++)
+        {
+            var rolledHexes = GameState.GatherRolledHexes();
+            rollHistory.Add(rolledHexes);
+
+            GameState.AssociatePlayerResources(rolledHexes, 5);
+        }
+
+        return new
+        {
+            Rolls = GameState.GetRolledHexesHistoryAsJson(rollHistory),
+            Players = GameState.GetAllPlayersAsJson()
+        };
+    });
+
+    app.MapPost("/api/send-array", (int[] data) =>
+    {
+        return Results.Ok(GameState.SendArrayAsJson(data));
+    });
+
+    app.Run();
+    
+    public static object GetResourceMapAsJson()
+    {
+        if (ResourceMap == null)
+            return new { error = "ResourceMap is not initialized" };
+
+        var result = new Dictionary<string, object>();
+
+        foreach (var entry in ResourceMap)
+        {
+            var key = $"{entry.Key.x},{entry.Key.y}";
+
+            result[key] = entry.Value.Select(t => new
+            {
+                resourceTypeID = t.resourceTypeID,
+                resourceRoll = t.resourceRoll,
+            }).ToList();
+        }
+
+        return result;
+    }
+
+    public static object GetNodeGraphAsJson()
+    {
+        if (NodeGraph == null)
+            return new { error = "NodeGraph is not initialized" };
+
+        var result = new Dictionary<string, object>();
+
+        foreach (var entry in NodeGraph)
+        {
+            var key = $"{entry.Key.x},{entry.Key.y}";
+
+            result[key] = new
+            {
+                SettlementPlayerID = entry.Value.SettlementPlayerID,
+                Edges = entry.Value.Edges.Select(e => new
+                {
+                    RoadPlayerID = e.RoadPlayerID,
+                    ConnectedNode = new { x = e.ConnectedNode.x, y = e.ConnectedNode.y }
+                }).ToList()
+            };
+        }
+
+        return result;
+    }
+
+    public static object GetPlayerResourcesAsJson(int playerID)
+    {
+        if (playerID < 0 || playerID >= Players.Count)
+            return new { error = "Invalid player ID" };
+
+        var p = Players[playerID];
+
+        return new
+        {
+            p.PlayerID,
+            p.Username,
+            Resources = new
+            {
+                p.Wheat,
+                p.Bricks,
+                p.Ore,
+                p.Wood,
+                p.Sheep
+            },
+            Settlements = p.Settlements.Select(s => new
+            {
+                x = s.x,
+                y = s.y
+            }).ToList(),
+            Cities = p.Cities.Select(c => new
+            {
+                x = c.x,
+                y = c.y
+            }).ToList()
+        };
+    }
+
+    public static object GetRolledHexesAsJson(Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> rolledHexes)
+    {
+        var result = new Dictionary<string, object>();
+
+        foreach (var entry in rolledHexes)
+        {
+            var key = $"{entry.Key.x},{entry.Key.y}";
+
+            result[key] = entry.Value.Select(r => new
+            {
+                resourceTypeID = r.resourceTypeID,
+                resourceRoll = r.resourceRoll
+            }).ToList();
+        }
+
+        return result;
+    }
+
+    public static object GetAllPlayersAsJson()
+    {
+        return Players.Select(p => new
+        {
+            p.PlayerID,
+            p.Username,
+            Resources = new
+            {
+                p.Wheat,
+                p.Bricks,
+                p.Ore,
+                p.Wood,
+                p.Sheep
+            },
+            Settlements = p.Settlements.Select(s => new
+            {
+                x = s.x,
+                y = s.y
+            }).ToList()
+        }).ToList();
+    }
+
+
+    public static object GetNodeGraphAndGetPlayerResources(int playerID)
+    {
+        return new
+        {
+            NodeGraph = GetNodeGraphAsJson(),
+            Player = GetPlayerResourcesAsJson(playerID)
+        };
+    }
+
+    public static object GetRolledHexesHistoryAsJson(List<Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>> history)
+    {
+        var result = new List<object>();
+
+        int rollIndex = 0;
+
+        foreach (var roll in history)
+        {
+            var rollEntry = new Dictionary<string, object>();
+
+            foreach (var hex in roll)
+            {
+                var key = $"{hex.Key.x},{hex.Key.y}";
+
+                rollEntry[key] = hex.Value.Select(r => new
+                {
+                    resourceTypeID = r.resourceTypeID,
+                    resourceRoll = r.resourceRoll
+                }).ToList();
+            }
+
+            result.Add(new
+            {
+                RollNumber = rollIndex++,
+                Hexes = rollEntry
+            });
+        }
+
+        return result;
+    }
+*/
+
+/*
+    public static void TestPlaceSettlements()
+    {
+        if (NodeGraph == null)
+            throw new Exception("NodeGraph not initialized");
+        Players.Clear();
+
+        Players.Add(new Player { PlayerID = 0, Username = "Player 1" });
+
+        Players.Add(new Player { PlayerID = 1, Username = "Player 2" });
+
+        // Player 0 (Displayed as Player 1) settlement at (0,0)
+        if (NodeGraph.ContainsKey((0, 0)))
+        {
+            NodeGraph[(0, 0)].SettlementPlayerID = 0;
+            Players[0].Settlements.Add((0, 0));
+        }
+        else
+        {
+            Console.WriteLine("WARNING: Node (0,0) does not exist, if this comes up you have seriously fucked up the code");
+        }
+
+        // Player 1 (Player 2 Disp) settlement at (2,3)
+        if (NodeGraph.ContainsKey((2, 3)))
+        {
+            NodeGraph[(2, 3)].SettlementPlayerID = 1;
+            Players[1].Settlements.Add((2, 3));
+        }
+        else
+        {
+            Console.WriteLine("WARNING: Node (2,3) does not exist, with mapsize >5 this line should not come up");
+        }
+    }
+}
+*/
+    /*
+    public static void PlayerTurn(int playerID, bool settlement, int xSettlement, double ySettlement, bool city, int xCity, double yCity, bool road, int xRoad1, int xRoad2, double yRoad1, double yRoad2, bool developmentCard, int developmentCardID, bool playDevelopmentCard, int tradeOfferID, bool startPhase, )
+    {
+        // Settlement placing block
+        if (settlement)
+        {
+            
+        } 
+        // City Placing Block
+        else if (city)
+        {
+            
+        }
+        // Road Placing Block
+        else if (road)
+        {
+            
+        }
+
+        else if (developmentCard)
+        {
+
+        }
+
+        else if (playDevelopmentCard)
+        {
+            
+        }
+
+        else if (tradeOfferID >= 0)
+        {
+            // Trade offer logic goes here
+        }
+
+        else
+        {
+            Console.WriteLine("Error: No valid action selected");
+        }
+    }   
+    */
+
+
+    /*
+    app.MapPost("/start", (Guid guid) =>
+    {
+        GameState.RequestStartGame(guid);
+        Console.WriteLine("[GAME] Game Started!");
+        return Results.Ok();
+    });
+    */
+
+    /*
+    This is the security for testing on a local device
+    */
+    /*
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend", policy =>
+        {
+            policy.WithOrigins("http://localhost:8082")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    });
+    */
+========================================================================================================================================================================================================================
+MAINGAMESCREEN.JS
+========================================================================================================================================================================================================================
+
+////// *1 //////
+// Debug logs
+  //console.log("[LOG]vertexData:", JSON.stringify(vertexData));
+  //console.log("[LOG] gameState keys:", gameState ? Object.keys(gameState) : "NO GAMESTATE");
+  //if (!MAP_SIZE) throw new Error("[ERROR] map size not received from server");
+
+  // OLD HARDCODED DATA, KEEP FOR TESTING
+  /*
+  const resourceData = [2, 3, 0, 1, 4]; // Wheat, Brick, Ore, Wood, Sheep
+  let hexData = [];
+  let vertexData = [];
+  let edgeData = []; 
+  let hexRollData = []; 
+  let boatData = [];
+  let robberHex = -1;
+  let playerNumber = -1;
+  let playerTurn = 3; // change this for check (-1 means game startup)
+  let isBuildingRoad = true;
+  let roadSelectorVisible = true; // set this to false later
+
+  switch (MAP_SIZE) {
+    case 5: // Hex data MapSize == 5
+      hexData = [
+        1, 2, 3,
+        4, 5, 6, 1,
+        2, 3, 4, 5, 6,
+        1, 2, 3, 4,
+        5, 6, 1
+      ];
+      
+      hexRollData = [
+        5, 2, 6,
+        3, 8, 10, 9,
+        12, 11, 4, 8, 10,
+        9, 4, 5, 6,
+        3, 11, 2
+      ];
+
+      robberHex = 7;
+      
+      vertexData = [
+        [ -1, -1, -1], // 3
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1, -1], // 4
+        [ -1, -1, -1] // 3
+      ];
+
+      boatData = [
+        [ 1, 0, 0, 0, 0], // boat 1 3 to 1 //
+        [ 2, 0, 3, 1, 1], // boat 2 Wheat //
+        [ 3, 2, 4, 3, 2], // boat 3 Brick //
+        [ 5, 5, 5, 6, 3], // boat 4 Ore //
+        [ 4, 8, 3, 9, 4], // boat 5 Wood
+        [ 2, 10, 1, 11, 5], // boat 6 Sheep //
+        [ 0, 10, 0, 11, 0], // boat 7 3 to 1 //
+        [ 0, 7, 0, 8, 1], // boat 8 Wheat //
+        [ 0, 3, 0, 4, 2], // boat 9 Brick //
+      ];
+
+      edgeData= [ 
+        [3, -1, -1, -1, -1, -1], // hex 1 data
+        [-1, -1, -1, -1, -1, -1], // hex 2 data
+        [-1, -1, -1, -1, -1, -1], // hex 3 data
+        [-1, -1, -1, -1, -1, -1], // hex 4 data
+        [-1, -1, -1, -1, -1, -1], // hex 5 data
+        [-1, -1, -1, -1, -1, -1], // hex 6 data
+        [-1, -1, -1, -1, -1, -1], // hex 7 data
+        [-1, -1, -1, -1, -1, -1], // hex 8 data
+        [-1, -1, -1, -1, 3, -1], // hex 9 data
+        [-1, -1, -1, -1, -1, -1], // hex 10 data
+        [-1, -1, -1, -1, -1, -1], // hex 11 data
+        [-1, -1, -1, -1, -1, -1], // hex 12 data
+        [-1, -1, -1, 3, -1, -1], // hex 13 data
+        [-1, -1, -1, -1, -1, -1], // hex 14 data
+        [-1, -1, -1, -1, -1, -1], // hex 15 data
+        [-1, -1, -1, -1, -1, -1], // hex 16 data
+        [-1, -1, -1, -1, -1, -1], // hex 17 data
+        [-1, -1, -1, -1, -1, -1], // hex 18 data
+        [-1, -1, -1, -1, -1, -1], // hex 19 data
+      ];
+      break;
+    case 7: // Hex data MapSize == 7
+      hexData = [
+        1, 2, 3,
+        4, 5, 6, 1,
+        2, 3, 4, 5, 6,
+        2, 3, 4, 5, 6, 1,
+        2, 3, 4, 5, 6,
+        1, 2, 3, 4,
+        5, 6, 1
+      ];
+
+      vertexData = [
+        [ 1, 1, 1], // 3
+        [ -1, -1, -1, -1], // 4
+        [ 1, 1, 1, 1], // 4
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ 1, 1, 1, 1, 1 ], // 5
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ 1, 1, 1, 1, 1, 1 ], // 6
+        [ -1,  -1, -1, -1, -1, -1 , -1], // 7
+        [ 1, 1, 1, 1, 1, 1, 1], // 7
+        [ -1,  -1, -1, -1, -1, -1 ], // 6
+        [ 1, 1, 1, 1, 1, 1 ], // 6
+        [ -1, -1, -1, -1, -1 ], // 5
+        [ 1, 1, 1, 1, 1 ], // 5
+        [ -1, -1, -1, -1], // 4
+        [ 1, 1, 1, 1], // 4
+        [ -1, -1, -1] // 3
+      ];
+      break;
+    case 9: // Hex data MapSize == 9
+        hexData = [
+          1, 2, 3,
+          4, 5, 6, 1,
+          2, 3, 4, 5, 6,
+          2, 3, 4, 5, 6, 1,
+          2, 3, 4, 5, 6, 1, 3,
+          2, 3, 4, 5, 6, 1,
+          2, 3, 4, 5, 6,
+          1, 2, 3, 4,
+          5, 6, 1
+        ];
+
+        // Sample data
+        vertexData = [
+          [ 1, 1, 1], // 3
+          [ -1, -1, -1, -1], // 4
+          [ 1, 1, 1, 1], // 4
+          [ -1, -1, -1, -1, -1 ], // 5
+          [ 1, 1, 1, 1, 1 ], // 5
+          [ -1, -1, -1, -1, -1, -1 ], // 6
+          [ 1, 1, 1, 1, 1, 1 ], // 6
+          [ -1, -1, -1, -1, -1, -1 , -1], // 7
+          [ 1, 1, 1, 1, 1, 1, 1], // 7
+          [ -1, -1, -1, -1, -1, -1 , -1, -1], // 8
+          [ 1, 1, 1, 1, 1, 1, 1, 1], // 8
+          [ -1, -1, -1, -1, -1, -1 , -1], // 7
+          [ 1, 1, 1, 1, 1, 1, 1], // 7
+          [ -1, -1, -1, -1, -1, -1 ], // 6
+          [ 1, 1, 1, 1, 1, 1 ], // 6
+          [ -1, -1, -1, -1, -1 ], // 5
+          [ 1, 1, 1, 1, 1 ], // 5
+          [ -1, -1, -1, -1], // 4
+          [ 1, 1, 1, 1], // 4
+          [ -1, -1, -1] // 3
+        ];
+        break;
+      default:
+        throw new error("invalid map size");
+       
+
+  }
+
+  */ 
+ ////// end of *1 //////
+========================================================================================================================================================================================================================
+VERTEXLAYER.JS
+========================================================================================================================================================================================================================
+// DEPRICATED METHOD //
+/*
+function getOffsets(MAP_SIZE, HEX_WIDTH, HEX_HEIGHT) {
+  let xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift;
+
+  switch (MAP_SIZE) {
+    case 5:
+      xSpacing = HEX_WIDTH / .99;
+      oddRowOffset = HEX_HEIGHT / 4.9;
+      evenRowOffset = HEX_HEIGHT / 1.75;
+      horizontalShift = -20;
+      verticalShift = -130;
+      break;
+    case 7:
+      xSpacing = HEX_WIDTH / 1.01;
+      oddRowOffset = HEX_HEIGHT / 5.15;
+      evenRowOffset = HEX_HEIGHT / 1.75;
+      horizontalShift = -20;
+      verticalShift = -140;
+      break;
+    case 9:
+      xSpacing = HEX_WIDTH / 1.01;
+      oddRowOffset = HEX_HEIGHT / 5.15;
+      evenRowOffset = HEX_HEIGHT / 1.75;
+      horizontalShift = -20;
+      verticalShift = -140;
+      break;
+    default:
+      xSpacing = HEX_WIDTH / 1.01;
+      oddRowOffset = HEX_HEIGHT / 5.15;
+      evenRowOffset = HEX_HEIGHT / 1.75;
+      horizontalShift = -20;
+      verticalShift = -140;
+      throw new Error("MapSize unsupported, bugs likely");
+  }
+
+  if (
+    [xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift].some(
+      (v) => v == null
+    )
+  ) {
+    throw new Error("Offsets were not properly initialized!");
+  }
+
+  return { xSpacing, oddRowOffset, evenRowOffset, horizontalShift, verticalShift };
+}
+*/
+========================================================================================================================================================================================================================
+
+========================================================================================================================================================================================================================
+
+========================================================================================================================================================================================================================
