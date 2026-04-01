@@ -148,7 +148,7 @@ export default function VertexLayer({ vertexData, boatData, mapConfig, isPlayerT
     }
 
     return (
-      <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
+      <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="box-none">
         {renderBoats()}
 
         {vertexData.map((row, rowIndex) => {

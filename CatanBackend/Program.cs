@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Microsoft.OpenApi.Services;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
+using System.Reflection.Metadata.Ecma335;
 
 
 /*
@@ -302,7 +303,7 @@ app.MapGet("/processMove", async (HttpContext http, string guid, int moveType, s
         {
             0 => JsonSerializer.Deserialize<GameState.PlaceSettlementData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceSettlementData"),
             1 => JsonSerializer.Deserialize<GameState.PlaceCityData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceCityData"),
-            2 => JsonSerializer.Deserialize<GameState.PlaceRoadData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceRoadData"),
+            2 => JsonSerializer.Deserialize<GameState.PlaceRoadDataFrontend>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceRoadDataFrontend"),
             3 => JsonSerializer.Deserialize<GameState.DevCardBuyData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for DevCardBuyData"),
             4 => JsonSerializer.Deserialize<GameState.PlayDevCardData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlayDevCardData"),
             5 => JsonSerializer.Deserialize<GameState.EndTurnData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for EndTurnData"),
@@ -359,6 +360,7 @@ public class GameVars
 {
     public int MapSize { get; set; }
     public int MapType { get; set; } = 1; // default until I code it in
+    public int NumTilesTotal { get; set; } = -1;
     public int WinCondition { get; set; } = 1; // default until I code it in
     public int WinPoints { get; set; }
     public bool GameInitialized { get; set; }
@@ -471,16 +473,11 @@ public class GameHub : Hub
     {
         return moveType switch
         {
-            0 => JsonSerializer.Deserialize<GameState.PlaceSettlementData>(moveDataJson)
-                    ?? throw new ArgumentException("Invalid JSON for PlaceSettlementData"),
-            1 => JsonSerializer.Deserialize<GameState.PlaceCityData>(moveDataJson)
-                    ?? throw new ArgumentException("Invalid JSON for PlaceCityData"),
-            2 => JsonSerializer.Deserialize<GameState.PlaceRoadData>(moveDataJson)
-                    ?? throw new ArgumentException("Invalid JSON for PlaceRoadData"),
-            3 => JsonSerializer.Deserialize<GameState.DevCardBuyData>(moveDataJson)
-                    ?? throw new ArgumentException("Invalid JSON for DevCardBuyData"),
-            4 => JsonSerializer.Deserialize<GameState.PlayDevCardData>(moveDataJson)
-                    ?? throw new ArgumentException("Invalid JSON for PlayDevCardData"),
+            0 => JsonSerializer.Deserialize<GameState.PlaceSettlementData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceSettlementData"),
+            1 => JsonSerializer.Deserialize<GameState.PlaceCityData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceCityData"),
+            2 => JsonSerializer.Deserialize<GameState.PlaceRoadDataFrontend>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlaceRoadDataFrontend"),
+            3 => JsonSerializer.Deserialize<GameState.DevCardBuyData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for DevCardBuyData"),
+            4 => JsonSerializer.Deserialize<GameState.PlayDevCardData>(moveDataJson) ?? throw new ArgumentException("Invalid JSON for PlayDevCardData"),
             _ => throw new ArgumentException($"Unknown move type: {moveType}")
         };
     }
@@ -1088,53 +1085,58 @@ public static class GameState
     */
     private static int[][] PackageEdgeData()
     {
-        if (NodeGraph == null)
-            throw new InvalidOperationException("NodeGraph is not initialized!");
+        if (NodeGraph == null) throw new InvalidOperationException("NodeGraph is not initialized!");
 
         int hexDataLength = ((MapSizeGlobal - 1) / 2) * ((MapSizeGlobal - 1) / 2) + 6 * ((MapSizeGlobal - 1) / 2) + 3;
         int[][] edgeData = new int[hexDataLength][];
 
-        for (int i = 0; i < hexDataLength; i++)
-            edgeData[i] = new int[] { -1, -1, -1, -1, -1, -1 }; // filler
+        for (int i = 0; i < hexDataLength; i++) edgeData[i] = new int[] { -1, -1, -1, -1, -1, -1 };
 
         int xSize = 3;
         int midpoint = MapSizeGlobal / 2;
         int currentHex = 0;
 
-        for (int i = 0; i < MapSizeGlobal; i++)
+        for (int row = 0; row < MapSizeGlobal; row++)
         {
-            for (int j = 0; j < xSize; j++)
+            bool bottomHalf = row > midpoint;
+
+            for (int col = 0; col < xSize; col++)
             {
-                double[] hexY = { i + 0.5, i + 0.5, i, i, i + 1, i + 1 };
-                int[] hexX = { j, j + 1, j, j + 1, j, j + 1 };
+                var edgePairs = new ((int x, double y), (int x, double y))[6];
+                
+                edgePairs[0] = ((col,     row + 0.5), (col,     row + 1.0));
+                edgePairs[1] = ((col + 1, row + 0.5), (col + 1, row + 1.0));
+                
+                if (bottomHalf) edgePairs[2] = ((col, row + 0.5), (col + 1, row + 0.0));
+                else edgePairs[2] = ((col, row + 0.5), (col, row + 0.0));
+                
+                if (bottomHalf) edgePairs[3] = ((col + 1, row + 0.0), (col + 1, row + 0.5));
+                else edgePairs[3] = ((col, row + 0.0), (col + 1, row + 0.5));
+                
+                if (bottomHalf) edgePairs[4] = ((col, row + 1.5), (col, row + 1.0));
+                else edgePairs[4] = ((col + 1, row + 1.5), (col, row + 1.0));
+                
+                if (bottomHalf) edgePairs[5] = ((col + 1, row + 1.0), (col, row + 1.5));
+                else edgePairs[5] = ((col + 1, row + 1.0), (col + 1, row + 1.5));
 
                 for (int edgeIdx = 0; edgeIdx < 6; edgeIdx++)
                 {
-                    var nodeKey = (hexX[edgeIdx], (double)hexY[edgeIdx]);
-                    if (NodeGraph.ContainsKey(nodeKey))
-                    {
-                        var node = NodeGraph[nodeKey];
-                        if (node.Edges.Count > 0)
-                        {
-                            int roadPlayerID = node.Edges
-                                .Where(e => e.RoadPlayerID != -1)
-                                .Select(e => e.RoadPlayerID)
-                                .FirstOrDefault(-1);
+                    var (nodeA, nodeB) = edgePairs[edgeIdx];
 
-                            edgeData[currentHex][edgeIdx] = roadPlayerID;
-                        }
+                    if (NodeGraph.ContainsKey(nodeA) && NodeGraph.ContainsKey(nodeB))
+                    {
+                        var edge = NodeGraph[nodeA].Edges.FirstOrDefault(e => e.ConnectedNode == nodeB);
+
+                        if (edge != null && edge.RoadPlayerID != -1) edgeData[currentHex][edgeIdx] = edge.RoadPlayerID;
                     }
                 }
-
                 currentHex++;
             }
-
-            if (i < midpoint) xSize++;
+            if (row < midpoint) xSize++;
             else xSize--;
 
             if (xSize < 3) break;
         }
-
         return edgeData;
     }
 
@@ -1187,6 +1189,14 @@ public static class GameState
         public double YRoad1 { get; set; }
         public int XRoad2 { get; set; }
         public double YRoad2 { get; set; }
+        public bool RoadBuildingCard { get; set; }
+    }
+
+    public class PlaceRoadDataFrontend
+    {
+        public int PlayerID { get; set; }
+        public int HexNumber { get; set; }
+        public int HexSide { get; set; }
         public bool RoadBuildingCard { get; set; }
     }
 
@@ -1296,7 +1306,8 @@ public static class GameState
                 }
             case 2: // PlaceRoad(int playerID, int xRoad1, double yRoad1, int xRoad2, double yRoad2, bool roadBuildingCard, bool startPhase)
                 {
-                    var data = moveData as PlaceRoadData;
+                    var dataFrontend = moveData as PlaceRoadDataFrontend;
+                    var data = PlaceRoadInterpreter(dataFrontend);
                     return PlaceRoad(data.PlayerID, data.XRoad1, data.YRoad1, data.XRoad2, data.YRoad2, data.RoadBuildingCard);
                 }
             case 3: // BuyDevelopmentCard(int playerID, bool startPhase)
@@ -1326,6 +1337,153 @@ public static class GameState
         }
 
         // if (CheckWinCondition)
+    }
+
+    /*
+    public class PlaceRoadData
+    {
+        public int PlayerID { get; set; }
+        public int XRoad1 { get; set; }
+        public double YRoad1 { get; set; }
+        public int XRoad2 { get; set; }
+        public double YRoad2 { get; set; }
+        public bool RoadBuildingCard { get; set; }
+
+
+    }
+      1  2
+    0      3
+      5  4
+    */
+    public static PlaceRoadData PlaceRoadInterpreter(PlaceRoadDataFrontend frontendData)
+    {
+        int totalTiles = Globals.GameVars.NumTilesTotal;
+        int midpoint = totalTiles / 2;
+        int xroad1 = -1;
+        double yroad1 = -1;
+        int xroad2 = -1;
+        double yroad2 = -1;
+        int rowWidth = 3;
+        int hexRow = 0;
+        int hexColumn = 0;
+        int hexSide = frontendData.HexSide;
+        int hexNumber = frontendData.HexNumber;
+        int midheight = Globals.GameVars.MapSize / 2;
+
+        for (int i = 0; i < totalTiles; i++)
+        {
+            //Console.WriteLine($"[DEBUG] current row {hexRow}, hex column {hexColumn}, current row length {rowWidth}");
+            if (i == hexNumber) break;
+            if (hexColumn == rowWidth - 1 && hexRow < midheight) {rowWidth++; hexColumn = 0; hexRow++;}
+            else if (hexColumn == rowWidth - 1 && hexRow >= midheight) {rowWidth--; hexColumn = 0; hexRow++;}
+            else hexColumn++;
+        }
+
+        //Console.WriteLine($"[DEBUG] Selected hex data: ({hexColumn}, {hexRow})");
+
+        bool bottomHalf = (hexRow > midheight);
+
+        switch (hexSide)
+        {
+            case 0:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow + 1; 
+                }
+                else
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow + 1; 
+                }
+                break;
+            case 2:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow; 
+                }
+                else
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow;
+                }
+                break;
+            case 3:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow + .5; 
+                }
+                else
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow + .5;
+                }
+                break;
+            case 1:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow + 1; 
+                }
+                else
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow + .5;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow + 1;
+                }
+                break;
+            case 5:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow + 1;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow + 1.5; 
+                }
+                else
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow + 1;
+                    xroad2 = hexColumn + 1;
+                    yroad2 = hexRow + 1.5;
+                }
+                break;
+            case 4:
+                if (bottomHalf)
+                {
+                    xroad1 = hexColumn;
+                    yroad1 = hexRow + 1.5;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow + 1; 
+                }
+                else
+                {
+                    xroad1 = hexColumn + 1;
+                    yroad1 = hexRow + 1.5;
+                    xroad2 = hexColumn;
+                    yroad2 = hexRow + 1;
+                }
+                break;
+        }
+        
+        return new PlaceRoadData{PlayerID = frontendData.PlayerID, XRoad1 = xroad1, YRoad1 = yroad1, XRoad2 = xroad2, YRoad2 = yroad2, RoadBuildingCard = frontendData.RoadBuildingCard};
     }
 
     public static void VariousGameChecks()
@@ -1416,8 +1574,8 @@ public static class GameState
             }
             else
             {
-                Console.WriteLine("[ERROR] Invalid settlement coordinates during play phase");
-                return new MoveResult {Success = false, Error = "[ERROR] Invalid settlement coordinates during play phase"};
+                Console.WriteLine("[ERROR] Invalid settlement coordinates during play phase, idk also might be not enough reousreces, just check it, I promise you got this");
+                return new MoveResult {Success = false, Error = "[ERROR] Invalid settlement coordinates during play phase, idk also might be not enough reousreces, just check it, I promise you got this"};
             }
         }
     }
@@ -1454,22 +1612,30 @@ public static class GameState
         bool startPhase = Globals.GameVars.StartPhase;
         if (startPhase)
         {
-            if (NodeGraph.ContainsKey((xRoad1, yRoad1)) && NodeGraph.ContainsKey((xRoad2, yRoad2)) && // checker for if the keys are in the settlements graph
-                NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2)) && startPhase) // checker to make sure the nodes are adjacent
-            {
-                var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
-                edge1.RoadPlayerID = playerID;
+            if (NodeGraph.ContainsKey((xRoad1, yRoad1)) && NodeGraph.ContainsKey((xRoad2, yRoad2))) // checker for if the keys are in the settlements graph
+            { 
+                if (NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2))) // checker to make sure the nodes are adjacent  
+                {
+                    var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
+                    edge1.RoadPlayerID = playerID;
 
-                var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
-                edge2.RoadPlayerID = playerID;
+                    var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
+                    edge2.RoadPlayerID = playerID;
 
-                Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
-                return new MoveResult {Success = true, EventType = "RoadPlaced"};
+                    Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
+                    Console.WriteLine($"[DATA] road coordinates recieved ==> ({xRoad1}, {yRoad1})->({xRoad2}, {yRoad2})");
+                    return new MoveResult {Success = true, EventType = "RoadPlaced"};
+                }
+                else
+                {
+                    Console.WriteLine($"[ERROR] Invalid road coordinates during startup phase/edges are not adjacent... road coordinates recieved ==> ({xRoad1}, {yRoad1})->({xRoad2}, {yRoad2})");
+                    return new MoveResult {Success = false, Error = "[ERROR] Invalid road coordinates during startup phase/settlement not adjacent/edges are not adjacent"};
+                }
             }
             else
             {
-                Console.WriteLine("[ERROR] Invalid road coordinates during startup phase");
-                return new MoveResult {Success = false, Error = "[ERROR] Invalid road coordinates during startup phase"};
+                Console.WriteLine($"[ERROR] Invalid road coordinates during startup phase/settlement not adjacent... road coordinates recieved ==> ({xRoad1}, {yRoad1})->({xRoad2}, {yRoad2})");
+                return new MoveResult {Success = false, Error = "[ERROR] Invalid road coordinates during startup phase/settlement not adjacent"};
             }
         }
         else
@@ -1890,7 +2056,7 @@ public static class GameState
         
         int midpoint = (MapSize / 2);
         int xMaxSize = MapSize;
-
+        //Console.Write("[RESOURCEMAP] : \n");
         ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
         for (int i = 0; i < MapSize; i++)
         {
@@ -1926,7 +2092,10 @@ public static class GameState
                 List<(int resourceTypeID, int resourceRoll, bool hasRobber)> currentTile = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
                 currentTile.Add((chosenResource, chosenRoll, false));
                 ResourceMap.Add((i, j), currentTile);
+                //Console.Write($"({chosenResource}, {chosenRoll})");
             }
+            //Console.Write("\n");
+            
             if (i < midpoint)
             {
                 xSize++;
@@ -1962,7 +2131,7 @@ public static class GameState
                 XSize--;
             }
         }
-
+        Globals.GameVars.NumTilesTotal = totalTiles;
         return totalTiles;
     }
 
@@ -2331,6 +2500,8 @@ public static class GameState
         var rolledHexes = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
 
         int DiceRollTemp = DiceRoll();
+
+        Console.WriteLine($"[DICEROLL] {DiceRollTemp}");
 
         foreach (var (hexCoord, resourceList) in ResourceMap)
         {

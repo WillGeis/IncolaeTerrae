@@ -5,6 +5,7 @@ import VertexLayer from "./VertexLayer";
 import ResourceOverlay from "./ResourceOverlay";
 import PanZoomView from "./PanZoomView";
 import DevCardOverlay from "./DevCardOverlay";
+import RoadBuyScreen from "./RoadBuyScreen";
 import { usePlayer } from "./PlayerContext";
 import useGameHub from "./useGameHub";
 
@@ -20,6 +21,8 @@ export default function MainGameScreen({route}) {
   const { playerNumber, serverUrl, guid } = usePlayer();
   const [gameState, setGameState]     = useState(route.params?.gameState);
   const [playerState, setPlayerState] = useState(route.params?.playerState);
+
+  const [roadPopup, setRoadPopup] = useState(null);
 
   useGameHub(
     serverUrl,
@@ -128,7 +131,11 @@ export default function MainGameScreen({route}) {
               playerTurn={playerTurn}
               playerNumber={playerNumber}
               isBuildingRoad={isBuildingRoad}
+              isPlayerTurn={isPlayerTurn}
               mapConfig={mapConfig}
+              serverUrl={serverUrl}
+              guid={guid}
+              onRoadPopup={(popup) => setRoadPopup(popup)}
             />
             <VertexLayer
               vertexData={vertexData}
@@ -145,6 +152,20 @@ export default function MainGameScreen({route}) {
 
         <ResourceOverlay resources={resourceData} />
         <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
+
+        {roadPopup && (
+          <RoadBuyScreen
+            x={roadPopup.x}
+            y={roadPopup.y}
+            hexIndex={roadPopup.hexIndex}
+            edgeIndex={roadPopup.edgeIndex}
+            onClose={() => setRoadPopup(null)}
+            onSelectRoad={() => setRoadPopup(null)}
+            playerNumber={playerNumber}
+            serverUrl={serverUrl}
+            guid={guid}
+          />
+        )}
 
         <Pressable
           style={({ pressed }) => [

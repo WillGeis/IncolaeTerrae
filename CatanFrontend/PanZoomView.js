@@ -123,7 +123,7 @@ export default function PanZoomView({ children }) {
           step={0.01}
           value={sliderValue}
           onValueChange={handleSlider}
-          minimumTrackTintColor="#00ff99"
+          minimumTrackTintColor="#ffd000"
           maximumTrackTintColor="#334155"
           thumbTintColor="#e24b25"
         />
@@ -148,17 +148,20 @@ const styles = StyleSheet.create({
   },
   sliderContainer: {
     position: 'absolute',
-    bottom: 30,
-    left: '10%',
-    right: '10%',
-    alignItems: 'stretch',
-    backgroundColor: 'rgba(9, 13, 24, 0.7)',
-    borderRadius: 12,
-    paddingVertical: 8,
+    bottom: 20,
+    left: '25%',
+    right: '25%',
+    backgroundColor: '#972929',
+    paddingVertical: 6,
     paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   slider: {
     width: '100%',
-    height: 40,
+    height: 30,
   },
 });
