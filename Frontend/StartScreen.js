@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, Linking, TextInput } from "react-native";
 import { usePlayer } from "./PlayerContext";
 
-const REPO_URL = "https://github.com/WillGeis/CatanOnline";
+const REPO_URL = "https://github.com/WillGeis/IncolaeTerrae";
 
 export default function StartScreen({ navigation }) {
   const [localUsername, setLocalUsername] = React.useState("");
@@ -10,7 +10,7 @@ export default function StartScreen({ navigation }) {
   
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Cootan</Text>
+      <Text style={styles.title}>Incolae Terrae</Text>
 
       <TextInput
         placeholder="Enter username"

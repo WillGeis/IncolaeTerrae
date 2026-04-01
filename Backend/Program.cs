@@ -2138,7 +2138,7 @@ public static class GameState
     /*
     helper method to get resource: rolls, and counts.
 
-    Likely this will have to be revisited to create balanced resource nodes (i.e. not 15 deserts) because Catan does balance them, but for now an unsophisticated assigner for an infinitely scalable map will do
+    Likely this will have to be revisited to create balanced resource nodes (i.e. not 15 deserts) because a balance would be good, but for now an unsophisticated assigner for an infinitely scalable map will do
     */
     private static List<int[]> resourceValueGenerator(int MapType, int NumTiles)
     {

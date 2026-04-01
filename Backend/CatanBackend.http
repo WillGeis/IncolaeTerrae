@@ -1,6 +1,0 @@
-@CatanBackend_HostAddress = http://localhost:5082
-
-GET {{CatanBackend_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
