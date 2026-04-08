@@ -1540,7 +1540,7 @@ public static class GameState
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
         PackagePlayerNames();
-        Console.WriteLine($"[DEBUG] PerimeterNodes: {PerimeterNodes.Count}, BoatConnections: {BoatConnections.Count}, totalBoats expected: {MapSizeGlobal * 2}");
+        //Console.WriteLine($"[DEBUG] PerimeterNodes: {PerimeterNodes.Count}, BoatConnections: {BoatConnections.Count}, totalBoats expected: {MapSizeGlobal * 2}");
         Console.WriteLine("[GAMESTATE] Game Startup Phase completed successfully");
         Globals.GameVars.Turn = 0;
         GameStarted = true;
@@ -1609,6 +1609,7 @@ public static class GameState
                 NodeGraph[(xCity, yCity)].SettlementPlayerID = playerID; // this line is redundant but will reload the playerID for the node to PlayerID
                 Players[playerID].Cities.Add((xCity, yCity));
                 Players[playerID].Settlements.Remove((xCity, yCity));
+                NodeGraph[(xCity, yCity)].IsCity = true;
                 return new MoveResult {Success = true, EventType = "CityPlaced"};
             }
             else
@@ -2367,7 +2368,6 @@ public static class GameState
     {
         BoatConnections = new Dictionary<(int x, double y), int>();
 
-        int totalBoats = (MapSize * 2);
         int numPerimiterNodes = MapSize * 4 + 10;
 
         PerimeterNodes = new Dictionary<int, (int x, double y)>(numPerimiterNodes);
@@ -2406,8 +2406,18 @@ public static class GameState
         double connectionY1;
         int connectionX2;
         double connectionY2;
+        int spacing = -1;
+        int totalBoats = -1;
 
-        int spacing = 3;//numPerimiterNodes / totalBoats;
+        switch (MapSize)
+        {
+            case 5: {spacing = 3; totalBoats = 10; break;}
+            case 7: {spacing = 3; totalBoats = 13; break;}
+            case 9: {spacing = 3; totalBoats = 15; break;}
+        }
+
+        //int spacing = 3;//numPerimiterNodes / totalBoats;
+        //int totalBoats = (MapSize * 2);
 
         for (int i = 0; i < totalBoats; i++)
         {
@@ -2642,6 +2652,7 @@ public class Edge
 public class Node
 {
     public int SettlementPlayerID { get; set; }   // -1 is default, so no settlement
+    public bool IsCity { get; set; } = false;
     public List<Edge> Edges { get; set; } = new List<Edge>();
 }
 

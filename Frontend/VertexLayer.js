@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet, Text } from "react-native";
 import { useState } from "react";
 import NodeBuyScreen from "./NodeBuyScreen";
 
