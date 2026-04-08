@@ -327,6 +327,32 @@ app.MapGet("/host", () =>
         });
     });
     */
+
+        /*
+    public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
+    {
+        MapSizeGlobal = mapSize;
+        GameStartupPhase(numPlayers, mapType, mapSize);
+
+
+
+        int numTurn = 0;
+
+        bool winTestFlag2ndTurn = false;
+
+        while (!CheckWinCondition(Players, winCondition, winPoints) || winTestFlag2ndTurn)
+        {
+            foreach (var player in Players)
+            {
+                ResourceRollPhase();
+                //PlayerTurn(); //placeholder for now, need to actually give data to parse once i figure out how to connect to frontend
+            }
+            if (winTestFlag) { winTestFlag2ndTurn = winTestFlag; }
+            numTurn++;
+        }
+        return false;
+    }
+    */
 ========================================================================================================================================================================================================================
 MAINGAMESCREEN.JS
 ========================================================================================================================================================================================================================

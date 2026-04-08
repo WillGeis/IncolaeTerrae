@@ -82,6 +82,7 @@ async Task StartCloudflareTunnelAsync()
                 if (match.Success)
                 {
                     cloudflarePublicUrl = match.Value;
+                    //Console.WriteLine("[SANITY CHECK] sanity check");
                     Console.WriteLine($"[CLOUDFLARE TUNNEL] Public URL: {cloudflarePublicUrl}");
                 }
             }
@@ -366,6 +367,7 @@ public class GameVars
     public bool GameInitialized { get; set; }
     public bool RegisterPlayer { get; set;}
     public bool StartPhase { get; set;}
+    public int Turn { get; set; } = -1;
 }
 
 public static class Globals
@@ -644,32 +646,6 @@ public static class GameState
 
         return true;
     }
-    
-    /*
-    public static bool Gameloop(int numPlayers, int mapType, int mapSize, int winCondition, int winPoints, bool winTestFlag)
-    {
-        MapSizeGlobal = mapSize;
-        GameStartupPhase(numPlayers, mapType, mapSize);
-
-
-
-        int numTurn = 0;
-
-        bool winTestFlag2ndTurn = false;
-
-        while (!CheckWinCondition(Players, winCondition, winPoints) || winTestFlag2ndTurn)
-        {
-            foreach (var player in Players)
-            {
-                ResourceRollPhase();
-                //PlayerTurn(); //placeholder for now, need to actually give data to parse once i figure out how to connect to frontend
-            }
-            if (winTestFlag) { winTestFlag2ndTurn = winTestFlag; }
-            numTurn++;
-        }
-        return false;
-    }
-    */
 
     // Purchase type ID: 0 = settlement, 1 = city, 2 = road, 3 = development card
     /*
@@ -761,14 +737,16 @@ public static class GameState
 
         return new
         {
-            resourcemapjson    = resourceMap,
+            resourcemapjson = resourceMap,
             resourcerollsjson  = resourceRolls,
-            robberhexjson      = PackageRobberHex(),
-            nodegraphjson      = PackageNodeData(),
-            boatdatajson       = PackageBoatData(),
-            edgedatajson       = PackageEdgeData(),
-            winConditionjson   = PackageWinCondition(),
-            mapSizejson        = MapSizeGlobal,
+            robberhexjson = PackageRobberHex(),
+            nodegraphjson = PackageNodeData(),
+            boatdatajson = PackageBoatData(),
+            edgedatajson = PackageEdgeData(),
+            winConditionjson = PackageWinCondition(),
+            playerNamesList = PlayerNamesList,
+            mapSizejson = MapSizeGlobal,
+            currentDiceRoll = CurrentDiceRoll,
             currentPlayerIndex = _currentPlayerIndex,
         };
     }
@@ -821,6 +799,19 @@ public static class GameState
         catch (InvalidOperationException ex)
         {
             return Results.Json(new { error = ex.Message });
+        }
+    }
+
+    public static string[] PlayerNamesList;
+
+    private static void PackagePlayerNames()
+    {
+        PlayerNamesList = new string[Players.Count];
+        int i = 0;
+        foreach (var p in Players)
+        {
+            PlayerNamesList[i] = p.Username;
+            i++;
         }
     }
 
@@ -1291,6 +1282,7 @@ public static class GameState
         if (CurrentPlayer.PlayerID != player.PlayerID)
             return new MoveResult { Success = false, Error = "[ERROR] Not your turn" };
 
+        Console.WriteLine($"[DEBUG] Game Start Phase: {Globals.GameVars.StartPhase}");
         switch (moveType)
         {
             case 0: // PlaceSettlement(int playerID, int xSettlement, double ySettlement, bool startPhase)
@@ -1537,8 +1529,10 @@ public static class GameState
         ResourceDirectoryStarter();
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
+        PackagePlayerNames();
         Console.WriteLine($"[DEBUG] PerimeterNodes: {PerimeterNodes.Count}, BoatConnections: {BoatConnections.Count}, totalBoats expected: {MapSizeGlobal * 2}");
         Console.WriteLine("[GAMESTATE] Game Startup Phase completed successfully");
+        Globals.GameVars.Turn = 0;
         GameStarted = true;
         return true;
     }
@@ -1551,9 +1545,17 @@ public static class GameState
         {
             if (NodeGraph.ContainsKey((xSettlement, ySettlement)) && NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID == -1)
             {
-                NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID = playerID;
-                Players[playerID].Settlements.Add((xSettlement, ySettlement));
-                return new MoveResult {Success = true, EventType = "SettlementPlaced"};
+                if (!_snakingBack && Players[playerID].Settlements.Count < 1 || _snakingBack && Players[playerID].Settlements.Count < 2)
+                {
+                    NodeGraph[(xSettlement, ySettlement)].SettlementPlayerID = playerID;
+                    Players[playerID].Settlements.Add((xSettlement, ySettlement));
+                    return new MoveResult {Success = true, EventType = "SettlementPlaced"};
+                }
+                else
+                {
+                    Console.WriteLine("[ERROR] cannot place multiple settlements a turn");
+                    return new MoveResult {Success = false, Error = "[ERROR] cannot place multiple settlements a turn"};
+                }
             }
             else
             {
@@ -1616,15 +1618,23 @@ public static class GameState
             { 
                 if (NodeGraph[(xRoad1, yRoad1)].Edges.Any(e => e.ConnectedNode == (xRoad2, yRoad2))) // checker to make sure the nodes are adjacent  
                 {
-                    var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
-                    edge1.RoadPlayerID = playerID;
+                    if (!_snakingBack && Players[playerID].Roads.Count < 1 || _snakingBack && Players[playerID].Roads.Count < 2)
+                    {
+                        var edge1 = NodeGraph[(xRoad1, yRoad1)].Edges.First(e => e.ConnectedNode == (xRoad2, yRoad2));
+                        edge1.RoadPlayerID = playerID;
 
-                    var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
-                    edge2.RoadPlayerID = playerID;
+                        var edge2 = NodeGraph[(xRoad2, yRoad2)].Edges.First(e => e.ConnectedNode == (xRoad1, yRoad1));
+                        edge2.RoadPlayerID = playerID;
 
-                    Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
-                    Console.WriteLine($"[DATA] road coordinates recieved ==> ({xRoad1}, {yRoad1})->({xRoad2}, {yRoad2})");
-                    return new MoveResult {Success = true, EventType = "RoadPlaced"};
+                        Players[playerID].Roads.Add((xRoad1, xRoad2, yRoad1, yRoad2));
+                        Console.WriteLine($"[DATA] road coordinates recieved ==> ({xRoad1}, {yRoad1})->({xRoad2}, {yRoad2})");
+                        return new MoveResult {Success = true, EventType = "RoadPlaced"};
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ERROR] cannot place more than one road in startup phase per turn");
+                    return new MoveResult {Success = false, Error = "[ERROR] cannot place more than one road in startup phase per turn"};
+                    }
                 }
                 else
                 {
@@ -1781,11 +1791,22 @@ public static class GameState
 
     private static MoveResult EndTurn(int playerID)
     {
+        VariousGameChecks();
         //Console.WriteLine($"[END TURN DEBUG] playerIndex={_currentPlayerIndex}, snakingBack={_snakingBack}, startPhase={Globals.GameVars.StartPhase}, playerCount={Players.Count}");
+        Console.WriteLine($"[DEBUG] Settlements count {Players[playerID].Settlements.Count}, Roads count: {Players[playerID].Roads.Count}, Snaking back? {_snakingBack}");
         if (Globals.GameVars.StartPhase)
         {
-            if ((Players[playerID].Settlements.Count < 1 || Players[playerID].Roads.Count < 1) && !_snakingBack) {Console.WriteLine("[ERROR] Place your roads/settlements"); return new MoveResult {Success = false, Error = $"[ERROR] Place your roads/settlements"};}
-            if ((Players[playerID].Settlements.Count < 2 || Players[playerID].Roads.Count < 2) && _snakingBack) {Console.WriteLine("[ERROR] Place your roads/settlements"); return new MoveResult {Success = false, Error = $"[ERROR] Place your roads/settlements"};}
+            if ((Players[playerID].Settlements.Count < 1 || Players[playerID].Roads.Count < 1) && !_snakingBack) 
+            {
+                
+                Console.WriteLine("[ERROR] Place your roads/settlements"); 
+                return new MoveResult {Success = false, Error = $"[ERROR] Place your roads/settlements"};
+            }
+            if ((Players[playerID].Settlements.Count < 2 || Players[playerID].Roads.Count < 2) && _snakingBack) 
+            {
+                Console.WriteLine("[ERROR] Place your roads/settlements"); 
+                return new MoveResult {Success = false, Error = $"[ERROR] Place your roads/settlements"};
+            }
             int _pastPlayerIndex = _currentPlayerIndex;
 
             if (_currentPlayerIndex < Players.Count - 1 && !_snakingBack)
@@ -1794,19 +1815,15 @@ public static class GameState
                 _currentPlayerIndex--;
             else if (_currentPlayerIndex == Players.Count - 1)
                 _snakingBack = true;
-            else if (_currentPlayerIndex == 0 && _snakingBack)
-                Globals.GameVars.StartPhase = false; // snake complete, begin normal play
-
-            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
+            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started!!");
             return new MoveResult { Success = true, EventType = "TurnEnded" };
         }
         else
         {
             int _pastPlayerIndex = _currentPlayerIndex;
             _currentPlayerIndex = (_currentPlayerIndex + 1) % Players.Count;
-            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started");
+            Console.WriteLine($"[TURN] {Players[_pastPlayerIndex].Username}'s turn is over, {CurrentPlayer.Username}'s turn has started??");
             ResourceRollPhase();
-            VariousGameChecks();
             return new MoveResult { Success = true, EventType = "TurnEnded" };
         }
     }
@@ -2148,11 +2165,15 @@ public static class GameState
         int[] ResourcePool = new int[] {0,0,0,0,0,0};
         for (int i = 0; i < NumTiles; i++)
         {
-            int randomResource1 = rng.Next(1, 7);; // simulate dice roll 1
-            int randomResource2 = rng.Next(1, 7); // simulate dice roll 2
+            int diceRoll = DiceRoll();
 
-            ResourcePool[randomResource1 - 1]++;
-            ResourceNumbers[randomResource1 + randomResource2 - 2]++;
+            while (diceRoll == 7)
+            {
+                diceRoll = DiceRoll();
+            }
+
+            ResourcePool[rng.Next(0, 6)]++;
+            ResourceNumbers[diceRoll - 2]++;
         }
         return new List<int[]>() { ResourcePool, ResourceNumbers };
     }
@@ -2502,35 +2523,51 @@ public static class GameState
         var rolledHexes = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
 
         int DiceRollTemp = DiceRoll();
+        CurrentDiceRoll = DiceRollTemp;
 
         Console.WriteLine($"[DICEROLL] {DiceRollTemp}");
 
-        foreach (var (hexCoord, resourceList) in ResourceMap)
-        {
-            foreach (var resource in resourceList)
-            {
-                if (resource.resourceRoll == DiceRollTemp && !resource.hasRobber)
-                {
-                    if (!rolledHexes.ContainsKey(hexCoord))
-                    {
-                        rolledHexes[hexCoord] = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
-                    }
 
-                    rolledHexes[hexCoord].Add(resource);
+        if (DiceRollTemp != 7)
+        {
+            foreach (var (hexCoord, resourceList) in ResourceMap)
+            {
+                foreach (var resource in resourceList)
+                {
+                    if (resource.resourceRoll == DiceRollTemp && !resource.hasRobber)
+                    {
+                        if (!rolledHexes.ContainsKey(hexCoord))
+                        {
+                            rolledHexes[hexCoord] = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
+                        }
+
+                        rolledHexes[hexCoord].Add(resource);
+                    }
                 }
             }
+        }
+        else if (DiceRollTemp == 7)
+        {
+            
         }
 
         return rolledHexes;
     }
 
+    public static int CurrentDiceRoll = -1;
+
     public static int DiceRoll()
     {
-        return rng.Next(1, 7) + rng.Next(1, 7);
+        int dicerolltemp = rng.Next(1, 7) + rng.Next(1, 7);
+        return dicerolltemp;
     }
 
-
-
+    /*
+    public static void RobberResourceDiscard
+    {
+        
+    }
+    */
     
 
     /*
@@ -2613,6 +2650,7 @@ public class Player
     public bool HasLargestArmy { get; set; }
     public bool HasLongestRoad { get; set; }
     public int ExtraPoints { get; set; }
+    public int gameStartupPhaseSettlementsPlaced { get;  set; } = 0;
 }
 
 public class MoveResult

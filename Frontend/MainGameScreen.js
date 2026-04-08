@@ -8,6 +8,7 @@ import DevCardOverlay from "./DevCardOverlay";
 import RoadBuyScreen from "./RoadBuyScreen";
 import { usePlayer } from "./PlayerContext";
 import useGameHub from "./useGameHub";
+import TurnAndDice from "./TurnAndDiceRoll";
 
 
 const BASE_HEX_SIZE = 60;
@@ -64,7 +65,9 @@ export default function MainGameScreen({route}) {
   const resourceData = playerState?.playerResourcesjson ?? [0, 0, 0, 0, 0];
   const devCards = playerState?.playerDevCardsjson ?? [];
   const playerPoints = playerState?.playerPoints ?? 0;
-  const playerTurn   = gameState?.currentPlayerIndex ?? -1;
+  const playerTurn = gameState?.currentPlayerIndex ?? -1;
+  const playerNamesList = gameState?.playerNamesList ?? [];
+  const currentDiceRoll = gameState?.currentDiceRoll ?? -1;
   const isPlayerTurn = playerTurn === playerNumber;
   const isBuildingRoad = false;
   const roadSelectorVisible = false;
@@ -153,6 +156,12 @@ export default function MainGameScreen({route}) {
         <ResourceOverlay resources={resourceData} />
         <DevCardOverlay devCards={devCards} playerPoints={playerPoints} />
 
+        <TurnAndDice
+          currentDiceRoll={currentDiceRoll}
+          playerNamesList={playerNamesList}
+          playerTurn={playerTurn}
+        />
+
         {roadPopup && (
           <RoadBuyScreen
             x={roadPopup.x}
@@ -196,7 +205,7 @@ export default function MainGameScreen({route}) {
       justifyContent: "center",
       alignItems: "center",
     },
-      endTurnButton: {
+    endTurnButton: {
       position: "absolute",
       right: 20,
       top: "50%",

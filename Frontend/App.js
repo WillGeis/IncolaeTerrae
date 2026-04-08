@@ -42,7 +42,7 @@ export default function App() {
             name="Start"
             component={StartScreen}
             options={{
-              title: "Cootan Main",
+              title: "Incolae Terrae",
               headerTransparent: true,
               headerShadowVisible: false,
               headerTitleStyle: {
