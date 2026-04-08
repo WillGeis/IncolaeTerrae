@@ -133,6 +133,8 @@ export default function VertexLayer({ vertexData, boatData, mapConfig, isPlayerT
 
                 const x        = colIndex * xSpacing;
                 const isVacant = value === -1;
+                const isCity = value >= 10;
+                const playerIndex = isCity ? value - 10 : value;
 
                 const dotColor = isVacant
                   ? (isPlayerTurn ? "#94a3b8" : "rgba(148,163,184,0.2)")
@@ -165,8 +167,23 @@ export default function VertexLayer({ vertexData, boatData, mapConfig, isPlayerT
                       borderWidth: !isVacant ? 2 : (isPlayerTurn ? 1.5 : 0),
                       borderColor: !isVacant ? "#fff" : "rgba(255,255,255,0.45)",
                       zIndex: 10,
+                      justifyContent: "center",
+                      alignItems: "center",
                     }}
-                  />
+                  >
+                    {isCity && (
+                      <Text style={{
+                        color: "#fff",
+                        fontSize: dotSize * 0.55,
+                        fontWeight: "bold",
+                        lineHeight: dotSize * 0.6,
+                        textAlign: "center",
+                        marginTop: -dotSize * 0.05,
+                      }}>
+                        +
+                      </Text>
+                    )}
+                  </Pressable>
                 );
               })}
             </View>

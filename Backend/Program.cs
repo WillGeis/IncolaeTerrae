@@ -965,9 +965,7 @@ public static class GameState
         if (NodeGraph == null)
             throw new InvalidOperationException("NodeGraph is not initialized!");
 
-        var rowGroups = NodeGraph.Keys
-            .GroupBy(k => k.y)
-            .OrderBy(g => g.Key);
+        var rowGroups = NodeGraph.Keys.GroupBy(k => k.y).OrderBy(g => g.Key);
 
         var result = new List<int[]>();
 
@@ -975,8 +973,11 @@ public static class GameState
         {
             var sortedNodes = row.OrderBy(k => k.x).ToList();
             int[] rowData = sortedNodes
-                .Select(k => NodeGraph[k].SettlementPlayerID)
-                .ToArray();
+                .Select(k => {
+                    var node = NodeGraph[k];
+                    if (node.SettlementPlayerID == -1) return -1;
+                    return node.IsCity ? node.SettlementPlayerID + 10 : node.SettlementPlayerID;
+                }).ToArray();
             result.Add(rowData);
         }
 
