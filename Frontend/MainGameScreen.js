@@ -9,6 +9,8 @@ import RoadBuyScreen from "./RoadBuyScreen";
 import { usePlayer } from "./PlayerContext";
 import useGameHub from "./useGameHub";
 import TurnAndDice from "./TurnAndDiceRoll";
+import Toast from "react-native-toast-message";
+
 
 
 const BASE_HEX_SIZE = 60;
@@ -38,6 +40,11 @@ export default function MainGameScreen({route}) {
     },
     (username) => {
       console.log(`[SIGNALR] ${username} joined`);
+      Toast.show({
+        type: "success",
+        text1: `${username} joined!`,
+        visibilityTime: 4000,
+      });
     }
   );
 
@@ -85,10 +92,10 @@ export default function MainGameScreen({route}) {
 
   // NODE //
   const VERTEX_X_SPACING = HEX_WIDTH  / 1.0;
-  const VERTEX_ODD_OFFSET = HEX_HEIGHT / 5.0;
-  const VERTEX_EVEN_OFFSET = HEX_HEIGHT / 1.75;
+  const VERTEX_ODD_OFFSET = HEX_HEIGHT / 5.2;
+  const VERTEX_EVEN_OFFSET = HEX_HEIGHT / 1.76;
   const VERTEX_H_SHIFT = -HEX_WIDTH * 0.12;
-  const VERTEX_V_SHIFT = -(HEX_HEIGHT * 0.55) - 30;
+  const VERTEX_V_SHIFT = -(HEX_HEIGHT * 0.51) - 30;
 
   // MAP CONFIG OBJ //
   const mapConfig = {
@@ -189,6 +196,7 @@ export default function MainGameScreen({route}) {
             {isPlayerTurn ? "End Turn ▶" : "Waiting..."}
           </Text>
         </Pressable>
+        <Toast />
       </View>
     );
   }

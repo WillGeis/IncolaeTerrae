@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function NodeBuyScreen({ x, y, row, col, onClose, onSelectCity, onSelectSettlement, playerNumber, serverUrl, guid }) {
 
@@ -8,7 +9,14 @@ export default function NodeBuyScreen({ x, y, row, col, onClose, onSelectCity, o
             const url = `${serverUrl}/processMove?guid=${guid}&moveType=${moveType}&moveDataJson=${encodeURIComponent(JSON.stringify(moveData))}`;
             const res = await fetch(url);
             const json = await res.json();
-            if (!json.success) console.warn("[PURCHASE] Server rejected:", json.error);
+            if (!json.success)  {
+                console.warn("[PURCHASE] Server rejected:", json.error);
+                Toast.show({
+                    type: "error",
+                    text1: json.error,
+                    visibilityTime: 4000,
+                });
+            }
             else onClose();
         } catch (err) {
             console.error("[PURCHASE] Fetch error:", err);
