@@ -899,6 +899,8 @@ public static class GameState
         {
             for (int j = 0; j < xSize; j++)
             {
+                var key = ResourceMap.Keys.OrderBy(k => k.y).ThenBy(k => k.x).ElementAt(currentHex);
+                
                 resourceMapFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceTypeID;
                 resourceRollsFrontendReadable[currentHex] = ResourceMap[(i, j)][0].resourceRoll;
 
@@ -910,7 +912,8 @@ public static class GameState
 
             if (xSize < 3) break;
         }
-
+        //Console.WriteLine($"[DEBUG] Resource Map: {string.Join(", ", resourceMapFrontendReadable)}");
+        //Console.WriteLine($"[DEBUG] Resource Rolls: {string.Join(", ", resourceRollsFrontendReadable)}");
         return (resourceMapFrontendReadable, resourceRollsFrontendReadable);
     }
 
@@ -1282,7 +1285,7 @@ public static class GameState
         if (CurrentPlayer.PlayerID != player.PlayerID)
             return new MoveResult { Success = false, Error = "[ERROR] Not your turn" };
 
-        Console.WriteLine($"[DEBUG] Game Start Phase: {Globals.GameVars.StartPhase}");
+        //Console.WriteLine($"[DEBUG] Game Start Phase: {Globals.GameVars.StartPhase}");
         switch (moveType)
         {
             case 0: // PlaceSettlement(int playerID, int xSettlement, double ySettlement, bool startPhase)
@@ -1482,12 +1485,18 @@ public static class GameState
     {
         if (Globals.GameVars.StartPhase)
         {
+            int playerCount = Players.Count;
+            int finishedPlayers = 0;
             foreach (var player in Players)
             {
                 if (player.Settlements.Count >= 2 && player.Roads.Count >= 2)
                 {
-                    Globals.GameVars.StartPhase = false;
+                    finishedPlayers++;
                 }
+            }
+            if (finishedPlayers == playerCount)
+            {
+                Globals.GameVars.StartPhase = false;
             }
         }
 
@@ -1793,7 +1802,7 @@ public static class GameState
     {
         VariousGameChecks();
         //Console.WriteLine($"[END TURN DEBUG] playerIndex={_currentPlayerIndex}, snakingBack={_snakingBack}, startPhase={Globals.GameVars.StartPhase}, playerCount={Players.Count}");
-        Console.WriteLine($"[DEBUG] Settlements count {Players[playerID].Settlements.Count}, Roads count: {Players[playerID].Roads.Count}, Snaking back? {_snakingBack}");
+        //Console.WriteLine($"[DEBUG] Settlements count {Players[playerID].Settlements.Count}, Roads count: {Players[playerID].Roads.Count}, Snaking back? {_snakingBack}");
         if (Globals.GameVars.StartPhase)
         {
             if ((Players[playerID].Settlements.Count < 1 || Players[playerID].Roads.Count < 1) && !_snakingBack) 
@@ -2452,6 +2461,13 @@ public static class GameState
         List<(int, int[])> playerResources = new List<(int, int[])> { };
 
         int midpoint = (MapSize / 2);
+
+        /*
+        foreach (var kvp in rolledHexes)
+        {
+            Console.WriteLine($"[DEBUG] Hex ({kvp.Key.x}, {kvp.Key.y}): {string.Join(", ", kvp.Value.Select(v => $"resource={v.resourceTypeID} roll={v.resourceRoll} robber={v.hasRobber}"))}");
+        }
+        */
 
         foreach (var rolledHex in rolledHexes)
         {
