@@ -152,7 +152,7 @@ export default function MainGameScreen({route}) {
               boatData={boatData}
               mapConfig={mapConfig}
               isPlayerTurn={isPlayerTurn}
-              onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
+              //onPressVertex={(row, col) => console.log("Vertex pressed:", row, col)}
               playerNumber={playerNumber}
               serverUrl={serverUrl}
               guid={guid}
