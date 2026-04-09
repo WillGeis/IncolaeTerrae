@@ -366,7 +366,9 @@ public class GameVars
     public int WinPoints { get; set; }
     public bool GameInitialized { get; set; }
     public bool RegisterPlayer { get; set;}
+
     public bool StartPhase { get; set;}
+    public int[] RobberCoordinates { get; set; }
     public int Turn { get; set; } = -1;
 }
 
@@ -1228,53 +1230,48 @@ public static class GameState
         public int TradeData { get; set; }
     }
 
-    public class MoveRobber // needs case
+    public class MoveRobberData
     {
         public int PlayerID { get; set; }
         public int XRobber { get; set; }
         public double YRobber { get; set; }
     }
 
-    public class StealResource // needs case
+    public class StealResourceData
     {
         public int PlayerID { get; set; }
         public int VictimID { get; set; }
     }
 
-    public class OfferTrade // needs case
+    public class OfferTradeData
     {
         public int PlayerID { get; set; }
-        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
-        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+        public int[] offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int[] requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
     }
 
-    public class AcceptTrade // needs case
-    {
-        public int PlayerID { get; set; }
-        public Guid tradeOfferID { get; set; }
-    }
+    public class AcceptTradeData 
 
-    public class RejectTrade // needs case
     {
         public int PlayerID { get; set; }
         public Guid tradeOfferID { get; set; }
     }
 
-    public class CounterTrade // needs case
+    public class CounterTradeData 
     {
         public int PlayerID { get; set; }
         public Guid tradeOfferID { get; set; }
-        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
-        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+        public int[] offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int[] requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
     }
 
-    public class DiscardResources // needs case
+    public class DiscardResourcesData
     {
         public int PlayerID { get; set; }
         public int Resources { get; set; } // AABBCCDDEE wheat, brick, etc
     }
 
-    public class ChatMessage // needs case
+    public class ChatMessageData
     {
         public int PlayerID { get; set; }
         public string message { get; set; }
@@ -1283,7 +1280,7 @@ public static class GameState
 
     public static MoveResult ProcessMove(Player player, int moveType, object moveData)
     {
-        if (CurrentPlayer.PlayerID != player.PlayerID)
+        if (CurrentPlayer.PlayerID != player.PlayerID && moveType != 12 && moveType != 13 && moveType != 14)
             return new MoveResult { Success = false, Error = "[ERROR] Not your turn" };
 
         //Console.WriteLine($"[DEBUG] Game Start Phase: {Globals.GameVars.StartPhase}");
@@ -1325,6 +1322,41 @@ public static class GameState
                 {
                     var data = moveData as BoatTradeData;
                     return BoatTrade(data.PlayerID, data.TradeData);
+                }
+            case 7: ////////////////////////
+                {
+                    var data = moveData as MoveRobberData;
+                    return MoveRobber(data.PlayerID, data.XRobber, data.YRobber);
+                }
+            case 8:
+                {
+                    var data = moveData as StealResourceData;
+                    return StealResource(data.PlayerID, data.VictimID);
+                }
+            case 9:
+                {
+                    var data = moveData as OfferTradeData;
+                    return OfferTrade(data.PlayerID, data.offeredResources, data.requestedResources);
+                }
+            case 10:
+                {
+                    var data = moveData as AcceptTradeData;
+                    return AcceptTrade(data.PlayerID, data.tradeOfferID);
+                }
+            case 11:
+                {
+                    var data = moveData as CounterTradeData;
+                    return CounterTrade(data.PlayerID, data.offeredResources, data.requestedResources, data.tradeOfferID);
+                }
+            case 12:
+                {
+                    var data = moveData as DiscardResourcesData;
+                    return DiscardResources(data.PlayerID, data.Resources);
+                }
+            case 13:
+                {
+                    var data = moveData as ChatMessageData;
+                    return ChatMessage(data.PlayerID, data.message, data.messageID);
                 }
             default:
                 {
@@ -1886,9 +1918,19 @@ public static class GameState
         public double YRobber { get; set; }
     }
     */
-    public static MoveResult MoveRobberPlayerIn(int PlayerID, int XRobber, double YRobber)
+    public static MoveResult MoveRobber(int PlayerID, int XRobber, double YRobber)
     {
-        return new MoveResult {Success = false, Error = "[ERROR] Method not implemented"};
+        if (ResourceMap.ContainsKey(XRobber, YRobber))
+        {
+            ResourceMap[Globals.GameVars.RobberCoordinates][0].hasRobber = false;
+            Globals.GameVars.RobberCoordinates = [(XRobber, YRobber)];
+            ResourceMap[(XRobber, YRobber)][0].hasRobber = true;
+            return new MoveResult {Success = true, EventType = "RobberMoved"};
+        }
+        else
+        {
+            return new MoveResult {Success = false, Error = "[ERROR] Robber out of map area"};
+        }
     }
 
     /*
@@ -1898,12 +1940,250 @@ public static class GameState
         public int VictimID { get; set; }
     }
     */
-    public static MoveResult StealResourcePlayerIn(int PlayerID, int VictimID)
+    public static MoveResult StealResourcePlayer(int PlayerID, int VictimID)
     {
-        return new MoveResult {Success = false, Error = "[ERROR] Method not implemented"};
+        int resourceStolen = rng.Next(0, 5);
+
+        switch (resourceStolen)
+        {
+            case 0:
+                {
+                    Players[VictimID].Wheat--;
+                    break;
+                }
+            case 1:
+                {
+                    Players[VictimID].Bricks--;
+                    break;
+                }
+            case 2:
+                {
+                    Players[VictimID].Ore--;
+                    break;
+                }  
+            case 3:
+                {
+                    Players[VictimID].Wood--;
+                    break;
+                }
+            case 4:
+                {
+                    Players[VictimID].Sheep--;
+                    break;
+                }
+        }
+
+        return new MoveResult {Success = true, EventType = "resourceStolen"};
     }
 
-    
+    /*
+    public class OfferTradeData
+    {
+        public int PlayerID { get; set; }
+        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+    }
+
+    public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
+    */
+    public class Trade
+    {
+        public int PlayerID { get; set; }
+        public bool tradeActive { get; set; }
+        public int[] offeredResources { get; set; }
+        public int[] requestedResources { get; set; }
+    }
+
+    public static Dictionary<Guid, Trade> Trades;
+
+    public static bool TradeHelper(int PlayerID, int trade)
+    {
+        int offered = trade / 100;
+        int offeredAmount = trade % 100;
+        switch (offered)
+        {
+            case 0:
+                {
+                    if (Players[PlayerID][0].Wheat < offeredAmount)
+                    {
+                        return false;
+                    }
+                    break;
+                }
+            case 1:
+                {
+                    if (Players[PlayerID][0].Bricks < offeredAmount)
+                    {
+                        return false;
+                    }
+                    break;
+                }
+            case 2:
+                {
+                    if (Players[PlayerID][0].Ore < offeredAmount)
+                    {
+                        return false;
+                    }
+                    break;
+                }
+            case 3:
+                {
+                    if (Players[PlayerID][0].Wood < offeredAmount)
+                    {
+                        return false;
+                    }
+                    break;
+                }
+            case 4:
+                {
+                    if (Players[PlayerID][0].Sheep < offeredAmount)
+                    {
+                        return false;
+                    }
+                    break;
+                }
+        }
+        return true;
+    }
+    public static MoveResult OfferTrade(int PlayerID, int[] offeredResources, int[] requestedResources)
+    {
+        bool tradeAcceptable = true;
+        for (int i = 0; i < offeredResources.Count; i++)
+        {
+            if (!TradeHelper(PlayerID, offeredResources[i]))
+            {
+                return new MoveResult {Success = false, Error = "[ERROR] you do not have enough resources"};
+            }
+        }
+        Trade trade = {PlayerID, true, offeredResources, requestedResources};
+        Trades.Add(trade);
+        return new MoveResult {Success = true, EventType = "tradeOffered"};
+    }
+
+    /*
+    public class AcceptTradeData 
+
+    {
+        public int PlayerID { get; set; }
+        public Guid tradeOfferID { get; set; }
+    }
+    */
+
+    public static MoveResult AcceptTrade(int PlayerID, Guid tradeOfferID)
+    {
+        Trade trade = Trades[tradeOfferID];
+        foreach (var resource in trade)
+        {
+            if (!TradeHelper(trade.PlayerID, trade.offeredResources))
+            {
+                return new MoveResult {Success = false, Error = "[ERROR] target player no longer has resources"};
+            }
+            if (!TradeHelper(PlayerID, trade.requestedResources))
+            {
+                return new MoveResult {Success = false, Error = "[ERROR] you do not have the resources to make this trade"};
+            }
+        }
+        return new MoveResult {Success = true, EventType = "resourcesTraded"};
+    }
+
+    /*
+    public class CounterTradeData 
+    {
+        public int PlayerID { get; set; }
+        public Guid tradeOfferID { get; set; }
+        public int offeredResources { get; set; } // 3 digit int ABB A is resource ID BB is number offered
+        public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
+    }
+    */
+    public static MoveResult CounterTrade(int PlayerID, Guid tradeOfferID, int offeredResources, int requestedResources)
+    {
+        bool tradeAcceptable = true;
+        for (int i = 0; i < offeredResources.Count; i++)
+        {
+            if (!TradeHelper(PlayerID, offeredResources[i]))
+            {
+                return new MoveResult {Success = false, Error = "[ERROR] you do not have enough resources"};
+            }
+        }
+        Trade trade = {PlayerID, true, offeredResources, requestedResources};
+        Trades.Add(trade);
+        return new MoveResult {Success = true, EventType = "tradeOffered"};
+    }
+
+    /*
+    public class DiscardResourcesData
+    {
+        public int PlayerID { get; set; }
+        public int Resources { get; set; } // AABBCCDDEE wheat, brick, etc
+    }
+    */
+    public static MoveResult DiscardResources(int PlayerID, int resources)
+    {
+        Player player = Players[PlayerID];
+        int wheat = player[0].Wheat;
+        int bricks = player[0].Bricks;
+        int ore = player[0].Ore;
+        int wood = player[0].Wood;
+        int sheep = player[0].Sheep;
+        int totalPlayerResource = wheat + bricks + ore + wood + sheep;
+        if (resources / 100000000 < wheat &&
+            (resources % 100000000) / 1000000 < bricks &&
+            (resources % 1000000) / 10000 < ore &&
+            (resources % 10000) / 100 < wood &&
+            (resources % 100) < sheep)
+        {
+            try
+            {
+                player.Wheat = wheat - resources / 100000000;
+                player.Bricks = bricks - (resources % 100000000) / 1000000;
+                player.Ore = ore - (resources % 1000000) / 10000;
+                player.Wood = wood - (resources % 10000) / 100;
+                player.Sheep = sheep - (resources % 100);
+                return new MoveResult {Success = true, EventType = "resourcesDiscarded"};
+                
+            }
+            catch
+            {
+                return new MoveResult {Success = false, Error = "[ERROR] Will fucked up the math"};
+            }
+        }
+        else
+        {
+            return new MoveResult {Success = false, Error = "[ERROR] Cant discard that"};
+        }
+    }
+
+    /*
+    public class ChatMessageData
+    {
+        public int PlayerID { get; set; }
+        public string message { get; set; }
+        public Guid messageID { get; set; }
+    }
+    */
+    public class ChatMessageStorage
+    {
+        public int PlayerID { get; set; }
+        public string PlayerName { get; set; }
+        public DateTime messageDateTime { get; set; }
+        public string message { get; set; }
+        public Guid messageID { get; set; }
+    }
+
+    public static Dictionary<Guid, ChatMessageStorage> chats = new Dictionary<Guid, ChatMessageStorage>();
+
+    public static MoveResult ChatMessage(int PlayerID, string message, Guid messageID)
+    {
+        ChatMessageStorage chat = new ChatMessageStorage();
+        chat.PlayerID = PlayerID;
+        chat.PlayerName = Players[PlayerID].Username;
+        DateTime utcTime = DateTime.UtcNow;
+        chat.messageDateTime = utcTime;
+        chat.message = message;
+        chat.messageID = messageID;
+        chats[messageID] = chat;
+        return new MoveResult {Success = true, EventType = "chatSent"};
+    }
 
     /*
     This code chunk will handle all Development Card logic
@@ -2088,10 +2368,13 @@ public static class GameState
         int xMaxSize = MapSize;
         //Console.Write("[RESOURCEMAP] : \n");
         ResourceMap = new Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>>();
+        int numRobbers = 1; //dont hardcode this if you wnat more robbers
         for (int i = 0; i < MapSize; i++)
         {
             for (int j = 0; j < xSize; j++)
             {
+                
+                
                 // Code block for resource index
                 int chosenResource = rng.Next(1, 7);
                 int[] tileResourcePool = resourcePool[0];
@@ -2120,7 +2403,15 @@ public static class GameState
 
                 // assign the current tile its values
                 List<(int resourceTypeID, int resourceRoll, bool hasRobber)> currentTile = new List<(int resourceTypeID, int resourceRoll, bool hasRobber)>();
-                currentTile.Add((chosenResource, chosenRoll, false));
+                if (i == MapSize/2 && j == xSize/2) // places robber in the middle
+                {
+                    Globals.GameVars.RobberCoordinates = [i, j]; 
+                    currentTile.Add((chosenResource, chosenRoll, true));
+                }
+                else 
+                {
+                    currentTile.Add((chosenResource, chosenRoll, false));
+                }
                 ResourceMap.Add((i, j), currentTile);
                 //Console.Write($"({chosenResource}, {chosenRoll})");
             }
