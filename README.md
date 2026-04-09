@@ -7,6 +7,12 @@ Frontend Designer: Will Geister
 
 Backend Engineer: Will Geister
 
+Product Owner: Will Geister
+
+Project Manager: Will Geister
+
+Scrum Master: Will Geister
+
 #### Intro
 My friends were sad that board games that are typically easy to add players to (i.e. purchase cheap packs of pieces) are not as easy to add players to on their online versions. This is despite the fact that it is as simple as setting player counts to not be bounded, yet these online versions often charge **higher prices** than their physical counterparts.
 
