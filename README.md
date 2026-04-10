@@ -1,8 +1,18 @@
 # Incolae Terrae
 Author: Will Geister
+
 Frontend Engineer: Will Geister
+
 Frontend Designer: Will Geister
+
 Backend Engineer: Will Geister
+
+Product Owner: Will Geister
+
+Project Manager: Will Geister
+
+Scrum Master: Will Geister
+
 #### Intro
 My friends were sad that board games that are typically easy to add players to (i.e. purchase cheap packs of pieces) are not as easy to add players to on their online versions. This is despite the fact that it is as simple as setting player counts to not be bounded, yet these online versions often charge **higher prices** than their physical counterparts.
 
@@ -17,8 +27,10 @@ This drawing is how the backend imagines the game board, and is theoretically go
 #### Additional help
 **Code Reviewers**
 Javascript Expert: Brian Lin
+
 Server Based Compute Expert: Addison Adkin
 
 #### Citations
 Inspiration: Catan and associated expansion packs.
+
 Initial test sprites: Skyrim, UW Madison Friends of the Arboretum, Getty Stock Images

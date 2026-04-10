@@ -1234,7 +1234,7 @@ public static class GameState
     {
         public int PlayerID { get; set; }
         public int XRobber { get; set; }
-        public double YRobber { get; set; }
+        public int YRobber { get; set; }
     }
 
     public class StealResourceData
@@ -1331,7 +1331,7 @@ public static class GameState
             case 8:
                 {
                     var data = moveData as StealResourceData;
-                    return StealResource(data.PlayerID, data.VictimID);
+                    return StealResourcePlayer(data.PlayerID, data.VictimID);
                 }
             case 9:
                 {
@@ -1346,7 +1346,7 @@ public static class GameState
             case 11:
                 {
                     var data = moveData as CounterTradeData;
-                    return CounterTrade(data.PlayerID, data.offeredResources, data.requestedResources, data.tradeOfferID);
+                    return CounterTrade(data.PlayerID, data.tradeOfferID, data.offeredResources, data.requestedResources);
                 }
             case 12:
                 {
@@ -1918,14 +1918,21 @@ public static class GameState
         public double YRobber { get; set; }
     }
     */
-    public static MoveResult MoveRobber(int PlayerID, int XRobber, double YRobber)
+    public static MoveResult MoveRobber(int PlayerID, int XRobber, int YRobber)
     {
-        if (ResourceMap.ContainsKey(XRobber, YRobber))
+        if (ResourceMap.ContainsKey((XRobber, YRobber)))
         {
-            ResourceMap[Globals.GameVars.RobberCoordinates][0].hasRobber = false;
-            Globals.GameVars.RobberCoordinates = [(XRobber, YRobber)];
-            ResourceMap[(XRobber, YRobber)][0].hasRobber = true;
-            return new MoveResult {Success = true, EventType = "RobberMoved"};
+            var oldCoords = (Globals.GameVars.RobberCoordinates[0], Globals.GameVars.RobberCoordinates[1]);
+            var oldEntry = ResourceMap[oldCoords][0];
+            oldEntry.hasRobber = false;
+            ResourceMap[oldCoords][0] = oldEntry;
+            Globals.GameVars.RobberCoordinates[0] = XRobber;
+            Globals.GameVars.RobberCoordinates[1] = YRobber;
+            var newEntry = ResourceMap[(XRobber, YRobber)][0];
+            newEntry.hasRobber = true;
+            ResourceMap[(XRobber, YRobber)][0] = newEntry;
+
+            return new MoveResult { Success = true, EventType = "RobberMoved" };
         }
         else
         {
@@ -2004,7 +2011,7 @@ public static class GameState
         {
             case 0:
                 {
-                    if (Players[PlayerID][0].Wheat < offeredAmount)
+                    if (Players[PlayerID].Wheat < offeredAmount)
                     {
                         return false;
                     }
@@ -2012,7 +2019,7 @@ public static class GameState
                 }
             case 1:
                 {
-                    if (Players[PlayerID][0].Bricks < offeredAmount)
+                    if (Players[PlayerID].Bricks < offeredAmount)
                     {
                         return false;
                     }
@@ -2020,7 +2027,7 @@ public static class GameState
                 }
             case 2:
                 {
-                    if (Players[PlayerID][0].Ore < offeredAmount)
+                    if (Players[PlayerID].Ore < offeredAmount)
                     {
                         return false;
                     }
@@ -2028,7 +2035,7 @@ public static class GameState
                 }
             case 3:
                 {
-                    if (Players[PlayerID][0].Wood < offeredAmount)
+                    if (Players[PlayerID].Wood < offeredAmount)
                     {
                         return false;
                     }
@@ -2036,7 +2043,7 @@ public static class GameState
                 }
             case 4:
                 {
-                    if (Players[PlayerID][0].Sheep < offeredAmount)
+                    if (Players[PlayerID].Sheep < offeredAmount)
                     {
                         return false;
                     }
@@ -2045,18 +2052,28 @@ public static class GameState
         }
         return true;
     }
+    /*
+    public class Trade
+    {
+        public int PlayerID { get; set; }
+        public bool tradeActive { get; set; }
+        public int[] offeredResources { get; set; }
+        public int[] requestedResources { get; set; }
+    }
+    */
     public static MoveResult OfferTrade(int PlayerID, int[] offeredResources, int[] requestedResources)
     {
         bool tradeAcceptable = true;
-        for (int i = 0; i < offeredResources.Count; i++)
+        for (int i = 0; i < offeredResources.Length; i++)
         {
             if (!TradeHelper(PlayerID, offeredResources[i]))
             {
                 return new MoveResult {Success = false, Error = "[ERROR] you do not have enough resources"};
             }
         }
-        Trade trade = {PlayerID, true, offeredResources, requestedResources};
-        Trades.Add(trade);
+        Trade trade = new Trade{PlayerID = PlayerID, tradeActive = true, offeredResources = offeredResources, requestedResources = requestedResources};
+        Guid tradeID = Guid.NewGuid();
+        Trades.Add(tradeID, trade);
         return new MoveResult {Success = true, EventType = "tradeOffered"};
     }
 
@@ -2072,13 +2089,17 @@ public static class GameState
     public static MoveResult AcceptTrade(int PlayerID, Guid tradeOfferID)
     {
         Trade trade = Trades[tradeOfferID];
-        foreach (var resource in trade)
+        foreach (var resource in trade.offeredResources)
         {
-            if (!TradeHelper(trade.PlayerID, trade.offeredResources))
+            if (!TradeHelper(trade.PlayerID, trade.offeredResources[resource]))
             {
                 return new MoveResult {Success = false, Error = "[ERROR] target player no longer has resources"};
             }
-            if (!TradeHelper(PlayerID, trade.requestedResources))
+            
+        }
+        foreach (var resource in trade.requestedResources)
+        {
+            if (!TradeHelper(PlayerID, trade.requestedResources[resource]))
             {
                 return new MoveResult {Success = false, Error = "[ERROR] you do not have the resources to make this trade"};
             }
@@ -2095,18 +2116,18 @@ public static class GameState
         public int requestedResources { get; set; } // 3 digit int ABB A is resource ID BB is number req 
     }
     */
-    public static MoveResult CounterTrade(int PlayerID, Guid tradeOfferID, int offeredResources, int requestedResources)
+    public static MoveResult CounterTrade(int PlayerID, Guid tradeOfferID, int[] offeredResources, int[] requestedResources)
     {
-        bool tradeAcceptable = true;
-        for (int i = 0; i < offeredResources.Count; i++)
+        for (int i = 0; i < offeredResources.Length; i++)
         {
             if (!TradeHelper(PlayerID, offeredResources[i]))
             {
-                return new MoveResult {Success = false, Error = "[ERROR] you do not have enough resources"};
+                return new MoveResult { Success = false, Error = "[ERROR] you do not have enough resources" };
             }
         }
-        Trade trade = {PlayerID, true, offeredResources, requestedResources};
-        Trades.Add(trade);
+        Trade trade = new Trade{PlayerID = PlayerID, tradeActive = true, offeredResources = offeredResources, requestedResources = requestedResources};
+        Guid tradeID = Guid.NewGuid();
+        Trades.Add(tradeID, trade);
         return new MoveResult {Success = true, EventType = "tradeOffered"};
     }
 
@@ -2120,11 +2141,11 @@ public static class GameState
     public static MoveResult DiscardResources(int PlayerID, int resources)
     {
         Player player = Players[PlayerID];
-        int wheat = player[0].Wheat;
-        int bricks = player[0].Bricks;
-        int ore = player[0].Ore;
-        int wood = player[0].Wood;
-        int sheep = player[0].Sheep;
+        int wheat = player.Wheat;
+        int bricks = player.Bricks;
+        int ore = player.Ore;
+        int wood = player.Wood;
+        int sheep = player.Sheep;
         int totalPlayerResource = wheat + bricks + ore + wood + sheep;
         if (resources / 100000000 < wheat &&
             (resources % 100000000) / 1000000 < bricks &&
