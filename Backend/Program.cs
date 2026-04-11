@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Services;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using System.Reflection.Metadata.Ecma335;
+using System.Data.SqlTypes;
 
 
 /*
@@ -596,7 +597,6 @@ public static class GameState
     Makes map, checks these:
     
     public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
-    public static Dictionary<int, string> ResourceDirectory;
     public static Dictionary<(int x, double y), Node> NodeGraph;
     public static Dictionary<double, int> NodeLayout;
 
@@ -612,11 +612,6 @@ public static class GameState
         if (ResourceMap == null)
         {
             Console.WriteLine("[ERROR] Cannot start game: ResourceMap is not initialized!");
-            return false;
-        }
-        if (ResourceDirectory == null)
-        {
-            Console.WriteLine("[ERROR] Cannot start game: ResourceDirectory is not initialized!");
             return false;
         }
         if (NodeGraph == null)
@@ -1227,7 +1222,7 @@ public static class GameState
     public class BoatTradeData
     {
         public int PlayerID { get; set; }
-        public int TradeData { get; set; }
+        public int[] TradeData { get; set; }
     }
 
     public class MoveRobberData
@@ -1568,7 +1563,6 @@ public static class GameState
 
     public static bool GameStartupPhase(int numPlayers, int mapType, int mapSize)
     {
-        ResourceDirectoryStarter();
         GenerateNewMaps(mapType, mapSize);
         GenerateNodeGraph(mapType, mapSize);
         PackagePlayerNames();
@@ -1875,39 +1869,127 @@ public static class GameState
     /*
     { 0, 3 to 1 },
     { 1, "Wheat" },
-    { 2, "Brick" },
+    { 2, "Bricks" },
     { 3, "Ore" },
     { 4, "Wood" },
     { 5, "Sheep" }
+
+    [x1, y1, x2, y2, boatType, offeredType, desiredType]
     */
-    public static MoveResult BoatTrade(int playerID, int tradeData)
+    public static bool boatTradeCheckRecursive(Player p, bool threeToOne, int tradeIndex, int d)
     {
-        var Settlements = Players[playerID].Settlements;
-        var Cities = Players[playerID].Cities;
-        foreach (var boatConnection in BoatConnections)
+        switch (tradeIndex)
+            {
+                case 0:
+                {
+                    boatTradeCheckRecursive(p, true, d, -1);
+                    return false;
+                }
+                case 1:
+                {    
+                    if (p.Wheat >= 2)
+                    {
+                        p.Wheat--;
+                        p.Wheat--;
+                        if (threeToOne)
+                        {
+                            p.Wheat--;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                case 2:
+                {
+                    if (p.Bricks >= 2)
+                    {
+                        p.Bricks--;
+                        p.Bricks--;
+                        if (threeToOne)
+                        {
+                            p.Bricks--;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                case 3:
+                {
+                    if (p.Ore >= 2)
+                    {
+                        p.Ore--;
+                        p.Ore--;
+                        if (threeToOne)
+                        {
+                            p.Ore--;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                case 4:
+                {
+                    if (p.Wood >= 2)
+                    {
+                        p.Wood--;
+                        p.Wood--;
+                        if (threeToOne)
+                        {
+                            p.Wood--;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+                case 5:
+                { 
+                    if (p.Sheep >= 2)
+                    {
+                        p.Sheep--;
+                        p.Sheep--;
+                        if (threeToOne)
+                        {
+                            p.Sheep--;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            return false;
+    }
+    public static MoveResult BoatTrade(int playerID, int[] tradeData)
+    {
+        if (Globals.GameVars.StartPhase == true)
         {
+            return new MoveResult { Success = false, Error = "[ERROR] If this occurs will needs to make this not clickable"};
+        }
+
+        Player p = Players[playerID];
+        int d = tradeData[6];
+        
+        var Settlements = p.Settlements;
+        var Cities = p.Cities;
             foreach (var settlement in Settlements)
             {
-                if (settlement.x == boatConnection.Key.x && settlement.y == boatConnection.Key.y)
+                if ((settlement.x == tradeData[0] && settlement.y == tradeData[1]) || (settlement.x == tradeData[2] && settlement.y == tradeData[3]))
                 {
-                    if (tradeData == BoatConnections[(boatConnection.Key.x, boatConnection.Key.y)])
-                    {
-                        return new MoveResult { Success = true, EventType = "TradeCompleted" };
-                    } 
+                    bool s = boatTradeCheckRecursive(p, false, tradeData[5], d);
+                    if (s) return new MoveResult { Success = s, EventType = "tradeComplete"};
+                    return new MoveResult {Success = false, Error = "[ERROR] Note enough resources"};
+                    
                 }
             }
             foreach (var city in Cities)
             {
-                if (city.x == boatConnection.Key.x && city.y == boatConnection.Key.y)
+                if ((city.x == tradeData[0] && city.y == tradeData[1]) || (city.x == tradeData[2] && city.y == tradeData[3]))
                 {
-                    if (tradeData == BoatConnections[(boatConnection.Key.x, boatConnection.Key.y)])
-                    {
-                        return new MoveResult { Success = true, EventType = "TradeCompleted" };
-                    } 
+                    bool s = boatTradeCheckRecursive(p, false, tradeData[5], d);
+                    if (s) return new MoveResult { Success = s, EventType = "tradeComplete"};
+                    return new MoveResult {Success = false, Error = "[ERROR] Note enough resources"};
                 }
             }
-        }
-        return new MoveResult {Success = false, Error = "[ERROR] you purchase this"};
+        return new MoveResult {Success = false, Error = "[ERROR] idk man"};
     }
 
     /*
@@ -2341,28 +2423,26 @@ public static class GameState
     This Code Chunk generates the resource map instance for this game and defines constructors for it.
     ==================================================================================================================================================================================================================================================================
     Constructors are:
-     - ResourceMap: gives the tile coordinates as a key and a tuple of the resource ID type (defined in ResourceDirectory) and the resource roll, simulated as 2 dice rolls
+     - ResourceMap: gives the tile coordinates as a key and a tuple of the resource ID type (defined in ResourceDirectory NOT ANYMORE BOZO) and the resource roll, simulated as 2 dice rolls
      - ResourceDirctory: associates the integer given in ResourceMap to a resource name, not really sure if this is fully necessary for a backend, but it helps me keep it in my head
     ==================================================================================================================================================================================================================================================================
     */
     public static Dictionary<(int x, int y), List<(int resourceTypeID, int resourceRoll, bool hasRobber)>> ResourceMap;
-    public static Dictionary<int, string> ResourceDirectory;
 
     private static int MapSizeGlobal = -1;
 
-    /*
-    Initializes the ResourceDirectory with resource IDs
-    */
-    public static void ResourceDirectoryStarter()
+    public static Dictionary<int, string> ReferenceResourceDirectory;
+
+    public static void ReferenceResourceDirectoryStarter()
     {
-        ResourceDirectory = new Dictionary<int, string>
+        ReferenceResourceDirectory = new Dictionary<int, string>
         {
-            { 1, "Wheat" },
-            { 2, "Brick" },
-            { 3, "Ore" },
-            { 4, "Wood" },
-            { 5, "Sheep" },
-            { 6, "Desert" }
+            { 0, "Wheat" },
+            { 1, "Brick" },
+            { 2, "Ore" },
+            { 3, "Wood" },
+            { 4, "Sheep" },
+            { 5, "Desert" }
         };
     }
 
