@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1.5,
     borderRadius: 3,
-    backgroundColor: "transparent",
+    backgroundColor: "transparent", //
   },
   resourceBtnDisabled: {
     opacity: 0.2,
