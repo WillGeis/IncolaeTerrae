@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   resourceBtn: {
     paddingHorizontal: 8,
     paddingVertical: 5,
-    borderWidth: 1.5,
+    borderWidth: 1.5, //
     borderRadius: 3,
     backgroundColor: "transparent", //
   },
